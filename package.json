@@ -1,0 +1,15 @@
+{
+  "name": "securecy-lms",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm --filter @securecy/web dev",
+    "dev:admin": "pnpm --filter @securecy/admin dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  }
+}

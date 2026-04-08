@@ -1,0 +1,19 @@
+{
+  "name": "@securecy/config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./tailwind.config.ts",
+  "exports": {
+    "./tailwind": "./tailwind.config.ts",
+    "./tsconfig": "./tsconfig.base.json",
+    "./postcss": "./postcss.config.js",
+    "./api-client": "./api-client.ts"
+  },
+  "dependencies": {
+    "@securecy/types": "workspace:*",
+    "tailwindcss": "^3.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
