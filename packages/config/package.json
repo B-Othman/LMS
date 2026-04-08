@@ -7,7 +7,8 @@
     "./tailwind": "./tailwind.config.ts",
     "./tsconfig": "./tsconfig.base.json",
     "./postcss": "./postcss.config.js",
-    "./api-client": "./api-client.ts"
+    "./api-client": "./api-client.ts",
+    "./auth-storage": "./auth-storage.ts"
   },
   "dependencies": {
     "@securecy/types": "workspace:*",

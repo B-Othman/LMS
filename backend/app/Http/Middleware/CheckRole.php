@@ -14,6 +14,7 @@ class CheckRole
 
         if (! $user) {
             return response()->json([
+                'message' => 'Authentication required.',
                 'errors' => [
                     ['code' => 'unauthenticated', 'message' => 'Authentication required.'],
                 ],
@@ -27,8 +28,9 @@ class CheckRole
         }
 
         return response()->json([
+            'message' => 'The required role is missing.',
             'errors' => [
-                ['code' => 'forbidden', 'message' => 'You do not have the required role.'],
+                ['code' => 'missing_role', 'message' => 'You do not have the required role.'],
             ],
         ], 403);
     }

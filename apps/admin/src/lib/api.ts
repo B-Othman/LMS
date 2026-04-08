@@ -1,5 +1,44 @@
 import { createApiClient } from "@securecy/config/api-client";
+import {
+  FORBIDDEN_EVENT_NAME,
+  UNAUTHORIZED_EVENT_NAME,
+  clearStoredToken,
+  getStoredToken,
+} from "@securecy/config/auth-storage";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+const parsedTenantId = Number(process.env.NEXT_PUBLIC_TENANT_ID ?? "1");
 
-export const api = createApiClient(API_BASE_URL);
+export const tenantId = Number.isFinite(parsedTenantId) ? parsedTenantId : 1;
+
+export const api = createApiClient({
+  baseUrl: API_BASE_URL,
+  getAccessToken: getStoredToken,
+  onUnauthorized: () => {
+    clearStoredToken();
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT_NAME));
+
+    if (window.location.pathname === "/login") {
+      return;
+    }
+
+    const next = `${window.location.pathname}${window.location.search}`;
+    window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+  },
+  onForbidden: (error) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(FORBIDDEN_EVENT_NAME, {
+        detail: { message: error.message },
+      }),
+    );
+  },
+});

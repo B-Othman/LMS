@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Validator;
 
 class RegisterRequest extends FormRequest
 {
@@ -22,13 +24,13 @@ class RegisterRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'confirmed', Password::defaults()],
             'tenant_id' => ['required', 'integer', 'exists:tenants,id'],
-            'role' => ['sometimes', 'string', 'exists:roles,slug'],
+            'role' => ['sometimes', 'string'],
         ];
     }
 
-    public function withValidator(\Illuminate\Validation\Validator $validator): void
+    public function withValidator(Validator $validator): void
     {
-        $validator->after(function (\Illuminate\Validation\Validator $validator) {
+        $validator->after(function (Validator $validator) {
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }
@@ -40,6 +42,22 @@ class RegisterRequest extends FormRequest
 
             if ($exists) {
                 $validator->errors()->add('email', 'A user with this email already exists in this organization.');
+            }
+
+            if (! $this->filled('role')) {
+                return;
+            }
+
+            $roleExists = Role::query()
+                ->where('slug', $this->input('role'))
+                ->where(function ($query) {
+                    $query->whereNull('tenant_id')
+                        ->orWhere('tenant_id', $this->integer('tenant_id'));
+                })
+                ->exists();
+
+            if (! $roleExists) {
+                $validator->errors()->add('role', 'The selected role is invalid for this organization.');
             }
         });
     }

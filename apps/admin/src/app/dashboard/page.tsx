@@ -1,4 +1,3 @@
-import type { User, Enrollment } from "@securecy/types";
 import { Card, CardHeader, CardTitle } from "@securecy/ui";
 
 export default function AdminDashboardPage() {

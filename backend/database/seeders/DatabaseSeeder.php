@@ -12,15 +12,16 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([
-            RoleSeeder::class,
-        ]);
-
         // Create default tenant
         $tenant = Tenant::firstOrCreate(
             ['slug' => 'securecy'],
             ['name' => 'Securecy', 'is_active' => true],
         );
+
+        $this->call([
+            PermissionSeeder::class,
+            RoleSeeder::class,
+        ]);
 
         // Create default System Admin
         $admin = User::withoutGlobalScopes()->firstOrCreate(
@@ -34,9 +35,13 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
-        $systemAdminRole = Role::where('slug', 'system-admin')->first();
-        if ($systemAdminRole && ! $admin->hasRole('system-admin')) {
-            $admin->roles()->attach($systemAdminRole->id, ['tenant_id' => $tenant->id]);
+        $systemAdminRole = Role::query()
+            ->where('slug', 'system_admin')
+            ->whereNull('tenant_id')
+            ->first();
+
+        if ($systemAdminRole && ! $admin->hasRole('system_admin')) {
+            $admin->assignRole($systemAdminRole);
         }
     }
 }

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
+use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 class RegisterController extends Controller
 {
@@ -16,6 +18,8 @@ class RegisterController extends Controller
 
     public function store(RegisterRequest $request): JsonResponse
     {
+        Gate::authorize('create', [User::class, $request->integer('tenant_id')]);
+
         $user = $this->auth->register($request->validated());
 
         return $this->success(

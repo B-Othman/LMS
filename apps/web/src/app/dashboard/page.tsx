@@ -1,5 +1,4 @@
-import type { Enrollment, Course } from "@securecy/types";
-import { Card, CardHeader, CardTitle, Badge, EmptyState } from "@securecy/ui";
+import { Card, CardHeader, CardTitle, EmptyState } from "@securecy/ui";
 
 export default function DashboardPage() {
   return (

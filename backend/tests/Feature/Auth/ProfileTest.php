@@ -2,16 +2,16 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\InteractsWithRbac;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithRbac, RefreshDatabase;
 
     public function test_me_returns_authenticated_user(): void
     {
@@ -44,20 +44,18 @@ class ProfileTest extends TestCase
     public function test_me_includes_roles_and_permissions(): void
     {
         $tenant = Tenant::factory()->create();
+        $this->seedRbac();
         $user = User::factory()->create(['tenant_id' => $tenant->id]);
-        $role = Role::create([
-            'name' => 'Learner',
-            'slug' => 'learner',
-            'is_system' => true,
-        ]);
-        $user->roles()->attach($role->id, ['tenant_id' => $tenant->id]);
+        $this->assignRole($user, 'learner');
 
         Sanctum::actingAs($user);
 
         $response = $this->getJson('/api/v1/me');
 
         $response->assertOk()
-            ->assertJsonPath('data.roles.0.slug', 'learner');
+            ->assertJsonPath('data.roles.0', 'learner');
+
+        $this->assertContains('courses.view', $response->json('data.permissions'));
     }
 
     public function test_me_requires_authentication(): void

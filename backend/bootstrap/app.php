@@ -1,6 +1,10 @@
 <?php
 
 use App\Exceptions\AuthException;
+use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureTenantIsActive;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,13 +24,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'role' => \App\Http\Middleware\CheckRole::class,
-            'permission' => \App\Http\Middleware\CheckPermission::class,
-            'tenant.active' => \App\Http\Middleware\EnsureTenantIsActive::class,
+            'role' => CheckRole::class,
+            'permission' => CheckPermission::class,
+            'tenant.active' => EnsureTenantIsActive::class,
         ]);
 
         $middleware->api(append: [
-            \App\Http\Middleware\EnsureTenantIsActive::class,
+            EnsureTenantIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
@@ -46,6 +50,18 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => $e->getMessage(),
                     'errors' => [['code' => $e->getErrorCode(), 'message' => $e->getMessage()]],
                 ], $e->getStatusCode());
+            }
+        });
+
+        $exceptions->render(function (AuthorizationException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'message' => $e->getMessage() ?: 'This action is unauthorized.',
+                    'errors' => [[
+                        'code' => 'authorization_denied',
+                        'message' => $e->getMessage() ?: 'This action is unauthorized.',
+                    ]],
+                ], 403);
             }
         });
 

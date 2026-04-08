@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Enums\UserStatus;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

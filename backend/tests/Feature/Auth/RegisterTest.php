@@ -2,33 +2,29 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\InteractsWithRbac;
 use Tests\TestCase;
 
 class RegisterTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithRbac, RefreshDatabase;
 
     private Tenant $tenant;
+
     private User $admin;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->tenant = Tenant::factory()->create();
-
-        Role::insert([
-            ['name' => 'System Admin', 'slug' => 'system-admin', 'is_system' => true, 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Learner', 'slug' => 'learner', 'is_system' => true, 'created_at' => now(), 'updated_at' => now()],
-        ]);
+        $this->seedRbac();
 
         $this->admin = User::factory()->create(['tenant_id' => $this->tenant->id]);
-        $adminRole = Role::where('slug', 'system-admin')->first();
-        $this->admin->roles()->attach($adminRole->id, ['tenant_id' => $this->tenant->id]);
+        $this->assignRole($this->admin, 'system_admin');
     }
 
     public function test_admin_can_register_user(): void
@@ -57,8 +53,7 @@ class RegisterTest extends TestCase
     public function test_register_requires_admin_role(): void
     {
         $learner = User::factory()->create(['tenant_id' => $this->tenant->id]);
-        $learnerRole = Role::where('slug', 'learner')->first();
-        $learner->roles()->attach($learnerRole->id, ['tenant_id' => $this->tenant->id]);
+        $this->assignRole($learner, 'learner');
 
         Sanctum::actingAs($learner);
 
@@ -71,7 +66,8 @@ class RegisterTest extends TestCase
             'tenant_id' => $this->tenant->id,
         ]);
 
-        $response->assertStatus(403);
+        $response->assertStatus(403)
+            ->assertJsonPath('errors.0.code', 'missing_role');
     }
 
     public function test_register_rejects_duplicate_email_in_tenant(): void

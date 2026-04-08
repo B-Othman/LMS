@@ -4,35 +4,51 @@ export class ApiClientError extends Error {
   constructor(
     public status: number,
     public errors: ApiError[],
+    public response: ApiResponse<unknown> | null = null,
   ) {
     super(errors[0]?.message ?? `API error ${status}`);
     this.name = "ApiClientError";
   }
 }
 
-interface RequestOptions extends Omit<RequestInit, "body"> {
-  params?: Record<string, string | number | boolean | undefined>;
+export interface RequestOptions extends Omit<RequestInit, "body"> {
+  params?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
+  handleAuthErrors?: boolean;
 }
 
-export function createApiClient(baseUrl: string) {
-  let token: string | null = null;
+interface CreateApiClientOptions {
+  baseUrl: string;
+  getAccessToken?: () => string | null;
+  onUnauthorized?: () => void;
+  onForbidden?: (error: ApiClientError) => void;
+}
 
-  function setToken(t: string | null) {
-    token = t;
-  }
+export function createApiClient({
+  baseUrl,
+  getAccessToken,
+  onUnauthorized,
+  onForbidden,
+}: CreateApiClientOptions) {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
 
   async function request<T>(
     method: string,
     path: string,
     options: RequestOptions = {},
   ): Promise<T> {
-    const { params, body, headers: customHeaders, ...rest } = options;
+    const {
+      params,
+      body,
+      handleAuthErrors = true,
+      headers: customHeaders,
+      ...rest
+    } = options;
 
-    const url = new URL(path, baseUrl);
+    const url = buildUrl(normalizedBaseUrl, path);
     if (params) {
       for (const [key, value] of Object.entries(params)) {
-        if (value !== undefined) {
+        if (value !== undefined && value !== null) {
           url.searchParams.set(key, String(value));
         }
       }
@@ -43,6 +59,7 @@ export function createApiClient(baseUrl: string) {
       ...((customHeaders as Record<string, string>) ?? {}),
     };
 
+    const token = getAccessToken?.() ?? null;
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
@@ -59,20 +76,30 @@ export function createApiClient(baseUrl: string) {
     });
 
     if (!res.ok) {
-      const json = await res.json().catch(() => ({ errors: [] }));
-      throw new ApiClientError(res.status, json.errors ?? []);
+      const json = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+      const error = new ApiClientError(res.status, json?.errors ?? [], json);
+
+      if (handleAuthErrors) {
+        if (res.status === 401) {
+          onUnauthorized?.();
+        }
+
+        if (res.status === 403) {
+          onForbidden?.(error);
+        }
+      }
+
+      throw error;
     }
 
     if (res.status === 204) {
-      return undefined as T;
+      return {} as T;
     }
 
     return res.json() as Promise<T>;
   }
 
   return {
-    setToken,
-
     get<T>(path: string, options?: RequestOptions): Promise<ApiResponse<T>> {
       return request<ApiResponse<T>>("GET", path, options);
     },
@@ -100,3 +127,22 @@ export function createApiClient(baseUrl: string) {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
+
+export function getFieldErrors(errors: ApiError[] = []): Record<string, string> {
+  return errors.reduce<Record<string, string>>((acc, error) => {
+    if (error.field && !acc[error.field]) {
+      acc[error.field] = error.message;
+    }
+
+    return acc;
+  }, {});
+}
+
+function buildUrl(baseUrl: string, path: string): URL {
+  if (/^https?:\/\//i.test(path)) {
+    return new URL(path);
+  }
+
+  const normalizedPath = path.replace(/^\/+/, "");
+  return new URL(`${baseUrl}/${normalizedPath}`);
+}

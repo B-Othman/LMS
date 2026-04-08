@@ -2,7 +2,14 @@
 export type { ApiResponse, ApiError, PaginatedResponse, PaginationMeta } from "./api";
 
 // Auth & identity
-export type { User, AuthResponse, LoginPayload, RegisterPayload } from "./user";
+export type {
+  User,
+  AuthResponse,
+  LoginPayload,
+  ForgotPasswordPayload,
+  ResetPasswordPayload,
+  RegisterPayload,
+} from "./user";
 export type { Role, RoleSlug, Permission } from "./role";
 export type { Tenant, TenantSetting } from "./tenant";
 

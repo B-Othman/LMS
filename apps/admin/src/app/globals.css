@@ -3,3 +3,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-neutral-50;
+  }
+
+  body {
+    @apply min-h-screen bg-neutral-50 font-sans text-night-900;
+  }
+
+  a {
+    @apply text-inherit;
+  }
+}
