@@ -4,6 +4,7 @@ use App\Exceptions\AuthException;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnsureTenantIsActive;
+use App\Http\Middleware\ResolveTenantContext;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -26,11 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => CheckRole::class,
             'permission' => CheckPermission::class,
+            'tenant.resolve' => ResolveTenantContext::class,
             'tenant.active' => EnsureTenantIsActive::class,
-        ]);
-
-        $middleware->api(append: [
-            EnsureTenantIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

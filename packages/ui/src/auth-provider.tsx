@@ -20,7 +20,10 @@ import {
 
 interface AuthProviderProps {
   api: ApiClient;
-  tenantId: number;
+  tenantAuthPayload: {
+    tenant_id?: number;
+    tenant_slug?: string;
+  };
   children: ReactNode;
   loginPath?: string;
 }
@@ -42,7 +45,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({
   api,
-  tenantId,
+  tenantAuthPayload,
   children,
   loginPath = "/login",
 }: AuthProviderProps) {
@@ -111,7 +114,7 @@ export function AuthProvider({
     try {
       const response = await api.post<AuthResponse>(
         "/auth/login",
-        { email, password, tenant_id: tenantId },
+        { email, password, ...tenantAuthPayload },
         { handleAuthErrors: false },
       );
 

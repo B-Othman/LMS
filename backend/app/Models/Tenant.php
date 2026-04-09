@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TenantStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -14,13 +15,16 @@ class Tenant extends Model
         'name',
         'slug',
         'domain',
-        'is_active',
+        'logo_path',
+        'status',
+        'settings',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_active' => 'boolean',
+            'status' => TenantStatus::class,
+            'settings' => 'array',
         ];
     }
 
@@ -31,6 +35,31 @@ class Tenant extends Model
 
     public function settings(): HasMany
     {
+        return $this->settingOverrides();
+    }
+
+    public function settingOverrides(): HasMany
+    {
         return $this->hasMany(TenantSetting::class);
+    }
+
+    public function courses(): HasMany
+    {
+        return $this->hasMany(Course::class);
+    }
+
+    public function roles(): HasMany
+    {
+        return $this->hasMany(Role::class);
+    }
+
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    public function mediaFiles(): HasMany
+    {
+        return $this->hasMany(MediaFile::class);
     }
 }

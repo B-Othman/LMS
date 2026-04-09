@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->string('key');
-            $table->text('value')->nullable();
+            $table->json('value')->nullable();
             $table->timestamps();
 
             $table->unique(['tenant_id', 'key']);

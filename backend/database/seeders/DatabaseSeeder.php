@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\TenantStatus;
 use App\Enums\UserStatus;
 use App\Models\Role;
 use App\Models\Tenant;
@@ -15,7 +16,7 @@ class DatabaseSeeder extends Seeder
         // Create default tenant
         $tenant = Tenant::firstOrCreate(
             ['slug' => 'securecy'],
-            ['name' => 'Securecy', 'is_active' => true],
+            ['name' => 'Securecy', 'status' => TenantStatus::Active],
         );
 
         $this->call([
@@ -42,6 +43,27 @@ class DatabaseSeeder extends Seeder
 
         if ($systemAdminRole && ! $admin->hasRole('system_admin')) {
             $admin->assignRole($systemAdminRole);
+        }
+
+        // Create default learner user
+        $learner = User::withoutGlobalScopes()->firstOrCreate(
+            ['email' => 'learner@securecy.com', 'tenant_id' => $tenant->id],
+            [
+                'first_name' => 'Sample',
+                'last_name' => 'Learner',
+                'password' => 'password',
+                'status' => UserStatus::Active,
+                'email_verified_at' => now(),
+            ],
+        );
+
+        $learnerRole = Role::query()
+            ->where('slug', 'learner')
+            ->where('tenant_id', $tenant->id)
+            ->first();
+
+        if ($learnerRole && ! $learner->hasRole('learner')) {
+            $learner->assignRole($learnerRole);
         }
     }
 }

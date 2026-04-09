@@ -5,7 +5,7 @@ import { Alert, AuthPageShell, Button, Input, Label, isApiClientError } from "@s
 import Link from "next/link";
 import { useState } from "react";
 
-import { api, tenantId } from "@/lib/api";
+import { api, tenantAuthPayload } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await api.post(
         "/auth/forgot-password",
-        { email, tenant_id: tenantId },
+        { email, ...tenantAuthPayload },
         { handleAuthErrors: false },
       );
 

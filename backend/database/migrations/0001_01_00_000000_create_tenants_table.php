@@ -13,7 +13,9 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('domain')->nullable()->unique();
-            $table->boolean('is_active')->default(true);
+            $table->string('logo_path')->nullable();
+            $table->enum('status', ['active', 'suspended'])->default('active');
+            $table->json('settings')->nullable();
             $table->timestamps();
         });
     }

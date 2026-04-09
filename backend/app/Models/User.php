@@ -3,9 +3,10 @@
 namespace App\Models;
 
 use App\Enums\UserStatus;
-use App\Models\Traits\BelongsToTenant;
 use App\Models\Traits\HasRoles;
+use App\Models\Traits\TenantAware;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -13,7 +14,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use BelongsToTenant, HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes, TenantAware;
 
     protected $fillable = [
         'tenant_id',
@@ -49,5 +50,15 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return $this->status === UserStatus::Active;
+    }
+
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    public function uploadedMedia(): HasMany
+    {
+        return $this->hasMany(MediaFile::class, 'uploaded_by');
     }
 }

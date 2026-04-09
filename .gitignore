@@ -29,7 +29,5 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
-CLAUDE.md
 .claude/
 
-.claude/settings.local.json

@@ -148,4 +148,22 @@ class LoginTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_login_with_tenant_slug(): void
+    {
+        User::factory()->create([
+            'tenant_id' => $this->tenant->id,
+            'email' => 'slug@example.com',
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => 'slug@example.com',
+            'password' => 'password',
+            'tenant_slug' => $this->tenant->slug,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.user.email', 'slug@example.com')
+            ->assertJsonPath('message', 'Login successful.');
+    }
 }

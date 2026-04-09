@@ -39,4 +39,14 @@ class CoursePolicy
     {
         return $this->hasTenantPermission($user, 'courses.publish', $course->tenant_id);
     }
+
+    public function manageModules(User $user, Course $course): bool
+    {
+        return $this->hasTenantPermission($user, 'modules.manage', $course->tenant_id);
+    }
+
+    public function manageLessons(User $user, Course $course): bool
+    {
+        return $this->hasTenantPermission($user, 'lessons.manage', $course->tenant_id);
+    }
 }

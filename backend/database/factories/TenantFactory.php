@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\TenantStatus;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -18,12 +19,14 @@ class TenantFactory extends Factory
             'name' => $name,
             'slug' => Str::slug($name).'-'.fake()->unique()->randomNumber(4),
             'domain' => null,
-            'is_active' => true,
+            'logo_path' => null,
+            'status' => TenantStatus::Active,
+            'settings' => null,
         ];
     }
 
-    public function inactive(): static
+    public function suspended(): static
     {
-        return $this->state(['is_active' => false]);
+        return $this->state(['status' => TenantStatus::Suspended]);
     }
 }

@@ -7,9 +7,13 @@ import {
 } from "@securecy/config/auth-storage";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
-const parsedTenantId = Number(process.env.NEXT_PUBLIC_TENANT_ID ?? "1");
+const rawTenantId = process.env.NEXT_PUBLIC_TENANT_ID;
+const parsedTenantId = rawTenantId ? Number(rawTenantId) : Number.NaN;
+const tenantSlug = process.env.NEXT_PUBLIC_TENANT_SLUG ?? "securecy";
 
-export const tenantId = Number.isFinite(parsedTenantId) ? parsedTenantId : 1;
+export const tenantAuthPayload = Number.isFinite(parsedTenantId)
+  ? { tenant_id: parsedTenantId }
+  : { tenant_slug: tenantSlug };
 
 export const api = createApiClient({
   baseUrl: API_BASE_URL,

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 
+import { Avatar } from "./avatar";
 import { LogoutIcon, MenuIcon, ChevronLeftIcon } from "./icons";
 import { Sidebar } from "./sidebar";
 
@@ -34,12 +35,6 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const initials = userName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((value) => value[0]?.toUpperCase() ?? "")
-    .join("");
 
   return (
     <div className="min-h-screen bg-neutral-50 text-night-900">
@@ -77,9 +72,7 @@ export function AppShell({
                 onClick={() => setMenuOpen((current) => !current)}
                 className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white px-3 py-2 text-left transition-colors hover:bg-primary-50"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500 text-body-md font-semibold text-white">
-                  {initials || "S"}
-                </div>
+                <Avatar name={userName} size="md" />
                 <div className="hidden sm:block">
                   <p className="text-body-md font-semibold text-night-900">{userName}</p>
                   <p className="text-body-sm text-neutral-500">{userEmail}</p>
