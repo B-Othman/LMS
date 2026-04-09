@@ -45,6 +45,13 @@ class CourseResource extends JsonResource
                 'id' => $this->creator->id,
                 'full_name' => $this->creator->full_name,
             ] : null),
+            'certificate_template' => $this->whenLoaded('certificateTemplate', fn () => $this->certificateTemplate ? [
+                'id' => $this->certificateTemplate->id,
+                'name' => $this->certificateTemplate->name,
+                'layout' => $this->certificateTemplate->layout->value,
+                'status' => $this->certificateTemplate->status->value,
+                'is_default' => $this->certificateTemplate->is_default,
+            ] : null),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

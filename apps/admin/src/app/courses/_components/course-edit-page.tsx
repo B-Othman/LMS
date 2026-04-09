@@ -2,13 +2,15 @@
 
 import { getFieldErrors } from "@securecy/config/api-client";
 import type {
+  CertificateTemplate,
   Course,
   CourseCategory,
   CourseVisibility,
   CreateLessonPayload,
   CreateModulePayload,
+  Lesson,
   LessonContentType,
-  Module,
+  QuizSummary,
   UpdateCoursePayload,
 } from "@securecy/types";
 import { useRouter } from "next/navigation";
@@ -24,6 +26,7 @@ import {
   Select,
   Tabs,
   isApiClientError,
+  useAuth,
   useToast,
   type TabItem,
   GripVerticalIcon,
@@ -32,7 +35,9 @@ import {
 } from "@securecy/ui";
 
 import { api } from "@/lib/api";
+import { fetchCertificateTemplates } from "@/lib/certificates";
 
+import { QuizBuilder } from "./quiz-builder";
 import { StatusBadge } from "./status-badge";
 
 const tabItems: TabItem[] = [
@@ -62,13 +67,16 @@ interface CourseEditPageProps {
 export function CourseEditPage({ courseId }: CourseEditPageProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState("details");
   const [course, setCourse] = useState<Course | null>(null);
   const [categories, setCategories] = useState<CourseCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [certificateTemplates, setCertificateTemplates] = useState<CertificateTemplate[]>([]);
 
   // Detail fields
   const [title, setTitle] = useState("");
@@ -77,9 +85,11 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
   const [shortDescription, setShortDescription] = useState("");
   const [visibility, setVisibility] = useState<CourseVisibility>("private");
   const [categoryId, setCategoryId] = useState("");
+  const [certificateTemplateId, setCertificateTemplateId] = useState("");
 
   // Structure state
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
+  const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
 
   // Add module
   const [addingModule, setAddingModule] = useState(false);
@@ -92,9 +102,10 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
 
   const loadCourse = useCallback(async () => {
     try {
-      const [courseRes, catRes] = await Promise.all([
+      const [courseRes, catRes, templates] = await Promise.all([
         api.get<Course>(`/courses/${courseId}`),
         api.get<CourseCategory[]>("/categories").catch(() => ({ data: [] as CourseCategory[] })),
+        fetchCertificateTemplates().catch(() => [] as CertificateTemplate[]),
       ]);
 
       const c = courseRes.data;
@@ -107,7 +118,9 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
       setShortDescription(c.short_description ?? "");
       setVisibility(c.visibility);
       setCategoryId(c.category?.id ? String(c.category.id) : "");
+      setCertificateTemplateId(c.certificate_template_id ? String(c.certificate_template_id) : "");
       setCategories(catRes.data ?? []);
+      setCertificateTemplates(templates);
 
       if (c.modules?.length && !selectedModuleId) {
         setSelectedModuleId(c.modules[0].id);
@@ -122,6 +135,20 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
   useEffect(() => {
     void loadCourse();
   }, [loadCourse]);
+
+  useEffect(() => {
+    const module = course?.modules?.find((item) => item.id === selectedModuleId) ?? null;
+
+    if (!module) {
+      setSelectedLessonId(null);
+
+      return;
+    }
+
+    if (!module.lessons.some((lesson) => lesson.id === selectedLessonId)) {
+      setSelectedLessonId(module.lessons[0]?.id ?? null);
+    }
+  }, [course, selectedLessonId, selectedModuleId]);
 
   async function handleSaveDetails(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -175,6 +202,35 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
     }
   }
 
+  async function handleSaveSettings() {
+    setIsSavingSettings(true);
+
+    try {
+      const response = await api.put<Course>(`/courses/${courseId}`, {
+        certificate_template_id: certificateTemplateId ? Number(certificateTemplateId) : null,
+      } satisfies UpdateCoursePayload);
+
+      if (response.data) {
+        setCourse(response.data);
+        setCertificateTemplateId(response.data.certificate_template_id ? String(response.data.certificate_template_id) : "");
+      }
+
+      showToast({
+        tone: "success",
+        title: "Settings updated",
+        message: "Certificate settings have been saved.",
+      });
+    } catch {
+      showToast({
+        tone: "error",
+        title: "Update failed",
+        message: "The course settings could not be saved.",
+      });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  }
+
   // Module actions
   async function handleAddModule() {
     if (!newModuleTitle.trim()) return;
@@ -203,15 +259,22 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
   // Lesson actions
   async function handleAddLesson(moduleId: number) {
     if (!newLessonTitle.trim()) return;
+
+    const lessonTitle = newLessonTitle.trim();
+
     try {
-      await api.post(`/modules/${moduleId}/lessons`, {
-        title: newLessonTitle,
+      const response = await api.post<Lesson>(`/modules/${moduleId}/lessons`, {
+        title: lessonTitle,
         type: newLessonType,
       } satisfies CreateLessonPayload);
       setNewLessonTitle("");
       setAddingLessonModuleId(null);
+      setSelectedModuleId(moduleId);
+      if (response.data) {
+        setSelectedLessonId(response.data.id);
+      }
       await loadCourse();
-      showToast({ tone: "success", title: "Lesson added", message: `"${newLessonTitle}" added.` });
+      showToast({ tone: "success", title: "Lesson added", message: `"${lessonTitle}" added.` });
     } catch {
       showToast({ tone: "error", title: "Failed", message: "Could not add lesson." });
     }
@@ -220,6 +283,9 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
   async function handleDeleteLesson(lessonId: number) {
     try {
       await api.delete(`/lessons/${lessonId}`);
+      if (selectedLessonId === lessonId) {
+        setSelectedLessonId(null);
+      }
       await loadCourse();
       showToast({ tone: "success", title: "Lesson deleted", message: "Lesson removed." });
     } catch {
@@ -227,13 +293,43 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
     }
   }
 
+  function handleQuizSummaryChange(lessonId: number, quiz: QuizSummary) {
+    setCourse((current) => {
+      if (!current?.modules) {
+        return current;
+      }
+
+      return {
+        ...current,
+        modules: current.modules.map((module) => ({
+          ...module,
+          lessons: module.lessons.map((lesson) =>
+            lesson.id === lessonId
+              ? { ...lesson, quiz }
+              : lesson,
+          ),
+        })),
+      };
+    });
+  }
+
   const categoryOptions = [
     { label: "No category", value: "" },
     ...flattenCategories(categories),
   ];
+  const certificateTemplateOptions = [
+    { label: "Use tenant default template", value: "" },
+    ...certificateTemplates
+      .filter((template) => template.status === "active")
+      .map((template) => ({
+        label: template.is_default ? `${template.name} (Default)` : template.name,
+        value: String(template.id),
+      })),
+  ];
 
   const modules = course?.modules ?? [];
   const selectedModule = modules.find((m) => m.id === selectedModuleId) ?? null;
+  const selectedLesson = selectedModule?.lessons.find((lesson) => lesson.id === selectedLessonId) ?? null;
 
   const canPublish = course?.status === "draft" && modules.some((m) => m.lessons.length > 0);
 
@@ -451,40 +547,55 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
             </Card>
 
             {/* Lesson Panel */}
-            <Card padded={false} className="overflow-hidden">
+            <div className="space-y-6">
+              <Card padded={false} className="overflow-hidden">
               {selectedModule ? (
                 <>
                   <div className="border-b border-neutral-200 px-5 py-4">
                     <h3 className="text-body-md font-semibold text-night-800">{selectedModule.title}</h3>
                     <p className="mt-1 text-body-sm text-neutral-400">
                       {selectedModule.lesson_count} {selectedModule.lesson_count === 1 ? "lesson" : "lessons"}
-                      {selectedModule.total_duration > 0 ? ` · ${selectedModule.total_duration} min` : ""}
+                      {selectedModule.total_duration > 0 ? ` • ${selectedModule.total_duration} min` : ""}
                     </p>
                   </div>
 
                   <div className="divide-y divide-neutral-100">
                     {selectedModule.lessons.map((lesson) => (
-                      <div
+                      <button
                         key={lesson.id}
-                        className="flex items-center gap-3 px-5 py-3"
+                        type="button"
+                        onClick={() => setSelectedLessonId(lesson.id)}
+                        className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${
+                          selectedLessonId === lesson.id ? "bg-primary-50" : "hover:bg-neutral-50"
+                        }`}
                       >
                         <GripVerticalIcon className="h-4 w-4 flex-shrink-0 text-neutral-300" />
                         <LessonTypeIcon type={lesson.type} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-body-sm font-medium text-neutral-700">{lesson.title}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-body-sm font-medium text-neutral-700">{lesson.title}</p>
+                            {lesson.quiz ? (
+                              <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-primary-700">
+                                {lesson.quiz.status}
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="text-body-sm text-neutral-400">
                             {lesson.type}
-                            {lesson.duration_minutes ? ` · ${lesson.duration_minutes} min` : ""}
+                            {lesson.duration_minutes ? ` • ${lesson.duration_minutes} min` : ""}
                           </p>
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleDeleteLesson(lesson.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteLesson(lesson.id);
+                          }}
                           className="rounded p-1 text-neutral-300 hover:text-error-500"
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
-                      </div>
+                      </button>
                     ))}
 
                     {selectedModule.lessons.length === 0 && addingLessonModuleId !== selectedModule.id ? (
@@ -551,7 +662,52 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
                   </p>
                 </div>
               )}
-            </Card>
+              </Card>
+
+              {selectedLesson ? (
+                selectedLesson.type === "quiz" ? (
+                  <QuizBuilder
+                    courseId={courseId}
+                    lesson={selectedLesson}
+                    onQuizSummaryChange={(quiz) => handleQuizSummaryChange(selectedLesson.id, quiz)}
+                  />
+                ) : (
+                  <Card>
+                    <p className="text-body-sm font-semibold uppercase tracking-[0.08em] text-neutral-500">
+                      Lesson Details
+                    </p>
+                    <h3 className="mt-3 text-h3 text-night-900">{selectedLesson.title}</h3>
+                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                        <p className="text-body-sm font-medium text-neutral-500">Type</p>
+                        <p className="mt-1 text-body-md font-semibold text-night-900">{selectedLesson.type}</p>
+                      </div>
+                      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                        <p className="text-body-sm font-medium text-neutral-500">Duration</p>
+                        <p className="mt-1 text-body-md font-semibold text-night-900">
+                          {selectedLesson.duration_minutes ? `${selectedLesson.duration_minutes} min` : "Self-paced"}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                        <p className="text-body-sm font-medium text-neutral-500">Preview</p>
+                        <p className="mt-1 text-body-md font-semibold text-night-900">
+                          {selectedLesson.is_previewable ? "Enabled" : "Restricted"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-5 text-body-md text-neutral-500">
+                      Quiz authoring appears here only for lessons whose type is set to <span className="font-semibold text-night-900">quiz</span>.
+                    </p>
+                  </Card>
+                )
+              ) : selectedModule ? (
+                <Card>
+                  <p className="text-body-md text-neutral-500">
+                    Select a lesson to review its details. Quiz lessons open the full builder here.
+                  </p>
+                </Card>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
@@ -560,14 +716,46 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
           <Card className="mt-6">
             <h3 className="text-h3 text-night-800">Course Settings</h3>
             <p className="mt-2 text-body-md text-neutral-500">
-              Certificate templates and completion rules will be configured here in a future update.
+              Configure the certificate template issued when learners complete this course.
             </p>
 
-            <div className="mt-6 rounded-lg border border-neutral-200 bg-neutral-50 p-6 text-center">
-              <p className="text-body-md text-neutral-400">
-                Settings such as certificate templates, completion requirements, and prerequisite courses are coming soon.
-              </p>
-            </div>
+            {hasPermission("certificates.issue") ? (
+              <>
+                <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,360px)_1fr]">
+                  <div className="space-y-2">
+                    <Label htmlFor="certificate-template">Certificate template</Label>
+                    <Select
+                      id="certificate-template"
+                      value={certificateTemplateId}
+                      options={certificateTemplateOptions}
+                      onChange={(event) => setCertificateTemplateId(event.target.value)}
+                    />
+                  </div>
+
+                  <div className="rounded-3xl border border-neutral-200 bg-neutral-50 px-5 py-4">
+                    <p className="text-body-sm font-semibold uppercase tracking-[0.08em] text-neutral-500">
+                      Issuance behavior
+                    </p>
+                    <p className="mt-3 text-body-md text-neutral-600">
+                      If no course-specific template is selected, Securecy uses the tenant default certificate template.
+                      Course completion still controls whether a certificate is issued automatically.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <Button type="button" disabled={isSavingSettings} onClick={() => void handleSaveSettings()}>
+                    {isSavingSettings ? "Saving..." : "Save Settings"}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-6 rounded-3xl border border-neutral-200 bg-neutral-50 px-5 py-5">
+                <p className="text-body-md text-neutral-600">
+                  You can edit course content, but only certificate managers can assign or change certificate templates.
+                </p>
+              </div>
+            )}
           </Card>
         ) : null}
       </div>

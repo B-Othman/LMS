@@ -61,4 +61,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(MediaFile::class, 'uploaded_by');
     }
+
+    public function quizAttempts(): HasMany
+    {
+        return $this->hasMany(QuizAttempt::class);
+    }
+
+    public function certificates(): HasMany
+    {
+        return $this->hasMany(Certificate::class);
+    }
 }

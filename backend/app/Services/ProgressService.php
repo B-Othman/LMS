@@ -9,6 +9,7 @@ use App\Models\Enrollment;
 use App\Models\Lesson;
 use App\Models\LessonProgress;
 use App\Models\MediaFile;
+use App\Models\QuizAttempt;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -39,8 +40,13 @@ class ProgressService
             'lessonProgress',
         );
 
+        $enrollment->course?->load([
+            'modules.lessons.quiz' => fn ($query) => $query->withCount('questions'),
+        ]);
+
         $this->attachProgressSummary($enrollment);
         $this->attachLessonProgress($enrollment);
+        $this->attachQuizMetadata($enrollment);
         $this->attachNavigationHints($enrollment);
 
         return $enrollment;
@@ -339,6 +345,62 @@ class ProgressService
 
         $enrollment->setAttribute('last_accessed_lesson_id', $lastAccessedLessonId);
         $enrollment->setAttribute('next_lesson_id', $nextLessonId);
+
+        return $enrollment;
+    }
+
+    private function attachQuizMetadata(Enrollment $enrollment): Enrollment
+    {
+        $course = $enrollment->course;
+
+        if (! $course || ! $course->relationLoaded('modules')) {
+            return $enrollment;
+        }
+
+        $quizIds = $course->modules
+            ->flatMap(fn ($module) => $module->lessons)
+            ->map(fn ($lesson) => $lesson->quiz?->id)
+            ->filter()
+            ->values();
+
+        if ($quizIds->isEmpty()) {
+            return $enrollment;
+        }
+
+        $attemptsByQuiz = QuizAttempt::query()
+            ->where('enrollment_id', $enrollment->id)
+            ->whereIn('quiz_id', $quizIds->all())
+            ->orderByDesc('started_at')
+            ->get()
+            ->groupBy('quiz_id');
+
+        foreach ($course->modules as $module) {
+            foreach ($module->lessons as $lesson) {
+                if (! $lesson->relationLoaded('quiz') || ! $lesson->quiz) {
+                    continue;
+                }
+
+                $quizAttempts = $attemptsByQuiz->get($lesson->quiz->id, collect());
+                $attemptsUsed = $quizAttempts->count();
+                $latestAttempt = $quizAttempts->first();
+
+                $lesson->quiz->setAttribute('attempts_used', $attemptsUsed);
+                $lesson->quiz->setAttribute(
+                    'attempts_remaining',
+                    $lesson->quiz->attempts_allowed === 0
+                        ? null
+                        : max(0, (int) $lesson->quiz->attempts_allowed - $attemptsUsed),
+                );
+                $lesson->quiz->setAttribute('latest_attempt', $latestAttempt ? [
+                    'id' => $latestAttempt->id,
+                    'status' => $latestAttempt->status->value,
+                    'score' => $latestAttempt->score !== null ? (float) $latestAttempt->score : null,
+                    'passed' => $latestAttempt->passed,
+                    'started_at' => $latestAttempt->started_at?->toIso8601String(),
+                    'submitted_at' => $latestAttempt->submitted_at?->toIso8601String(),
+                ] : null);
+            }
+        }
 
         return $enrollment;
     }

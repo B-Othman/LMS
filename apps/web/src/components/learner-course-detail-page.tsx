@@ -45,6 +45,7 @@ import { CompletionCheckmark } from "./completion-checkmark";
 import { LessonSidebar } from "./lesson-sidebar";
 import { LearnerStatusBadge } from "./learner-status-badge";
 import { PDFViewer } from "./pdf-viewer";
+import { QuizLessonPlayer } from "./quiz-lesson-player";
 import { VideoPlayer } from "./video-player";
 
 interface LearnerCourseDetailPageProps {
@@ -126,6 +127,7 @@ export function LearnerCourseDetailPage({
     courseDetail?.enrollment.completed_lessons_count ??
     0;
   const canTrackProgress = courseDetail?.enrollment.status === "active";
+  const isQuizLesson = currentLesson?.type === "quiz";
 
   useEffect(() => {
     if (!courseDetail || selectedLessonId === null) {
@@ -151,8 +153,39 @@ export function LearnerCourseDetailPage({
     setIsLessonLoading(true);
     setLessonError(null);
 
-    const contentPromise = fetchLessonContent(currentLessonId);
     const startPromise = canTrackProgress ? startLesson(currentLessonId) : Promise.resolve(null);
+
+    if (currentLesson?.type === "quiz") {
+      startPromise
+        .then((detail) => {
+          if (cancelled) {
+            return;
+          }
+
+          setLessonContent(null);
+
+          if (detail) {
+            setCourseDetail(detail);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setLessonContent(null);
+            setLessonError("The lesson could not be loaded.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLessonLoading(false);
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const contentPromise = fetchLessonContent(currentLessonId);
 
     Promise.all([contentPromise, startPromise])
       .then(([content, detail]) => {
@@ -181,7 +214,7 @@ export function LearnerCourseDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [canTrackProgress, currentLessonId]);
+  }, [canTrackProgress, currentLesson?.type, currentLessonId]);
 
   useEffect(() => {
     if (!currentLessonId || !canTrackProgress) {
@@ -255,6 +288,11 @@ export function LearnerCourseDetailPage({
     startTransition(() => {
       router.push(`/courses/${courseId}`, { scroll: false });
     });
+  }
+
+  async function refreshCourseDetail() {
+    const detail = await fetchLearnerCourseDetail(courseId);
+    setCourseDetail(detail);
   }
 
   return (
@@ -345,6 +383,52 @@ export function LearnerCourseDetailPage({
                           <div className="h-6 w-2/3 animate-pulse rounded bg-neutral-100" />
                           <div className="h-24 animate-pulse rounded bg-neutral-100" />
                         </div>
+                      ) : isQuizLesson ? (
+                        currentLesson.quiz ? (
+                          <div className="space-y-6">
+                            <QuizLessonPlayer
+                              quiz={currentLesson.quiz}
+                              canTrackProgress={canTrackProgress}
+                              onRefreshCourseDetail={refreshCourseDetail}
+                            />
+
+                            <div className="flex flex-col gap-4 border-t border-neutral-200 pt-6 md:flex-row md:items-center md:justify-between">
+                              <div className="text-body-sm text-neutral-500">
+                                {currentLesson.progress.status === "completed"
+                                  ? "Passing this quiz completed the lesson."
+                                  : "Submit a passing quiz attempt to complete this lesson."}
+                              </div>
+
+                              <div className="flex flex-wrap gap-3">
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  disabled={!previousLesson || isPending}
+                                  onClick={() => previousLesson && navigateToLesson(previousLesson.id)}
+                                >
+                                  Previous Lesson
+                                </Button>
+                                {currentLesson.progress.status === "completed" ? (
+                                  <Button type="button" disabled variant="success">
+                                    Completed
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  disabled={!nextLesson || isPending}
+                                  onClick={() => nextLesson && navigateToLesson(nextLesson.id)}
+                                >
+                                  Next Lesson
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <EmptyState
+                            title="Quiz unavailable"
+                            description="This quiz lesson has not been configured yet."
+                          />
+                        )
                       ) : lessonContent ? (
                         <div className="space-y-6">
                           <LessonContentBody
@@ -359,11 +443,15 @@ export function LearnerCourseDetailPage({
 
                           <div className="flex flex-col gap-4 border-t border-neutral-200 pt-6 md:flex-row md:items-center md:justify-between">
                             <div className="text-body-sm text-neutral-500">
-                              {currentLesson.progress.status === "completed"
-                                ? "This lesson has already been completed."
-                                : canTrackProgress
-                                  ? "Your progress is tracked automatically while you learn."
-                                  : "This enrollment is no longer active, so progress cannot be updated."}
+                              {isQuizLesson
+                                ? currentLesson.progress.status === "completed"
+                                  ? "Passing this quiz completed the lesson."
+                                  : "Submit a passing quiz attempt to complete this lesson."
+                                : currentLesson.progress.status === "completed"
+                                  ? "This lesson has already been completed."
+                                  : canTrackProgress
+                                    ? "Your progress is tracked automatically while you learn."
+                                    : "This enrollment is no longer active, so progress cannot be updated."}
                             </div>
 
                             <div className="flex flex-wrap gap-3">
@@ -375,7 +463,13 @@ export function LearnerCourseDetailPage({
                               >
                                 Previous Lesson
                               </Button>
-                              {currentLesson.progress.status === "completed" ? (
+                              {isQuizLesson ? (
+                                currentLesson.progress.status === "completed" ? (
+                                  <Button type="button" disabled variant="success">
+                                    Completed
+                                  </Button>
+                                ) : null
+                              ) : currentLesson.progress.status === "completed" ? (
                                 <Button
                                   type="button"
                                   disabled

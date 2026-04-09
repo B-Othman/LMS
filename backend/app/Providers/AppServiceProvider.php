@@ -2,9 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\Certificate;
+use App\Models\CertificateTemplate;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\User;
+use App\Policies\CertificatePolicy;
+use App\Policies\CertificateTemplatePolicy;
 use App\Policies\CoursePolicy;
 use App\Policies\EnrollmentPolicy;
 use App\Policies\UserPolicy;
@@ -30,5 +34,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Course::class, CoursePolicy::class);
         Gate::policy(Enrollment::class, EnrollmentPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(Certificate::class, CertificatePolicy::class);
+        Gate::policy(CertificateTemplate::class, CertificateTemplatePolicy::class);
     }
 }

@@ -7,13 +7,20 @@ use App\Http\Controllers\Auth\ProfileController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\CertificateTemplateController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\MyCourseController;
+use App\Http\Controllers\MyCertificateController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\LessonContentController;
+use App\Http\Controllers\PublicCertificateVerificationController;
+use App\Http\Controllers\QuizAttemptController;
+use App\Http\Controllers\QuizController;
+use App\Http\Controllers\QuizQuestionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserRoleController;
@@ -38,6 +45,8 @@ Route::prefix('auth')->group(function () {
     Route::post('/reset-password', [ResetPasswordController::class, 'store']);
 });
 
+Route::get('/certificates/verify/{verificationCode}', [PublicCertificateVerificationController::class, 'show']);
+
 // Authenticated routes
 Route::middleware(['auth:sanctum', 'tenant.resolve', 'tenant.active'])->group(function () {
     // Auth
@@ -54,6 +63,10 @@ Route::middleware(['auth:sanctum', 'tenant.resolve', 'tenant.active'])->group(fu
         ->middleware('permission:courses.view');
     Route::get('/my/courses/{courseId}', [MyCourseController::class, 'show'])
         ->middleware('permission:courses.view');
+    Route::get('/my/certificates', [MyCertificateController::class, 'index'])
+        ->middleware('permission:certificates.view');
+    Route::get('/my/certificates/{id}/download', [MyCertificateController::class, 'download'])
+        ->middleware('permission:certificates.view');
     Route::get('/my/enrollments/{enrollmentId}/progress', [MyEnrollmentProgressController::class, 'show'])
         ->middleware('permission:courses.view');
     Route::post('/my/lessons/{lessonId}/start', [MyLessonController::class, 'start'])
@@ -61,6 +74,8 @@ Route::middleware(['auth:sanctum', 'tenant.resolve', 'tenant.active'])->group(fu
     Route::post('/my/lessons/{lessonId}/complete', [MyLessonController::class, 'complete'])
         ->middleware('permission:courses.view');
     Route::post('/my/lessons/{lessonId}/heartbeat', [MyLessonController::class, 'heartbeat'])
+        ->middleware('permission:courses.view');
+    Route::get('/my/attempts', [QuizAttemptController::class, 'index'])
         ->middleware('permission:courses.view');
 
     // Roles
@@ -101,6 +116,28 @@ Route::middleware(['auth:sanctum', 'tenant.resolve', 'tenant.active'])->group(fu
     Route::post('/courses/{id}/duplicate', [CourseController::class, 'duplicate'])
         ->middleware('permission:courses.create');
 
+    // Certificate templates
+    Route::get('/certificate-templates', [CertificateTemplateController::class, 'index'])
+        ->middleware('permission:certificates.issue');
+    Route::post('/certificate-templates', [CertificateTemplateController::class, 'store'])
+        ->middleware('permission:certificates.issue');
+    Route::get('/certificate-templates/{id}', [CertificateTemplateController::class, 'show'])
+        ->middleware('permission:certificates.issue');
+    Route::put('/certificate-templates/{id}', [CertificateTemplateController::class, 'update'])
+        ->middleware('permission:certificates.issue');
+    Route::delete('/certificate-templates/{id}', [CertificateTemplateController::class, 'destroy'])
+        ->middleware('permission:certificates.issue');
+    Route::get('/certificate-templates/{id}/preview', [CertificateTemplateController::class, 'preview'])
+        ->middleware('permission:certificates.issue');
+
+    // Certificates
+    Route::get('/certificates', [CertificateController::class, 'index'])
+        ->middleware('permission:certificates.view');
+    Route::get('/certificates/{id}/download', [CertificateController::class, 'download'])
+        ->middleware('permission:certificates.view');
+    Route::post('/certificates/{id}/revoke', [CertificateController::class, 'revoke'])
+        ->middleware('permission:certificates.issue');
+
     // Modules
     Route::get('/courses/{courseId}/modules', [ModuleController::class, 'index'])
         ->middleware('permission:courses.view');
@@ -126,6 +163,28 @@ Route::middleware(['auth:sanctum', 'tenant.resolve', 'tenant.active'])->group(fu
         ->middleware('permission:lessons.manage');
     Route::post('/modules/{moduleId}/lessons/reorder', [LessonController::class, 'reorder'])
         ->middleware('permission:lessons.manage');
+
+    // Quizzes
+    Route::post('/quizzes', [QuizController::class, 'store'])
+        ->middleware('permission:assessments.manage');
+    Route::get('/quizzes/{id}', [QuizController::class, 'show'])
+        ->middleware('permission:assessments.manage');
+    Route::put('/quizzes/{id}', [QuizController::class, 'update'])
+        ->middleware('permission:assessments.manage');
+    Route::post('/quizzes/{id}/questions', [QuizQuestionController::class, 'store'])
+        ->middleware('permission:assessments.manage');
+    Route::post('/quizzes/{id}/questions/reorder', [QuizQuestionController::class, 'reorder'])
+        ->middleware('permission:assessments.manage');
+    Route::put('/questions/{id}', [QuizQuestionController::class, 'update'])
+        ->middleware('permission:assessments.manage');
+    Route::delete('/questions/{id}', [QuizQuestionController::class, 'destroy'])
+        ->middleware('permission:assessments.manage');
+    Route::post('/quizzes/{id}/attempts', [QuizAttemptController::class, 'store'])
+        ->middleware('permission:courses.view');
+    Route::post('/attempts/{id}/submit', [QuizAttemptController::class, 'submit'])
+        ->middleware('permission:courses.view');
+    Route::get('/attempts/{id}', [QuizAttemptController::class, 'show'])
+        ->middleware('permission:courses.view');
 
     // Media
     Route::post('/media/upload', [MediaController::class, 'upload'])

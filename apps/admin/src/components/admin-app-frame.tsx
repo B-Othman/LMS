@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import {
   Alert,
   AppShell,
+  CertificatesIcon,
   CoursesIcon,
   DashboardIcon,
   EmptyState,
@@ -39,6 +40,12 @@ const navigationConfig: Array<NavigationItem & { requiredPermissions?: string[] 
     label: "Enrollments",
     icon: <EnrollmentsIcon className="h-5 w-5" />,
     requiredPermissions: ["enrollments.view"],
+  },
+  {
+    href: "/certificates",
+    label: "Certificates",
+    icon: <CertificatesIcon className="h-5 w-5" />,
+    requiredPermissions: ["certificates.view", "certificates.issue"],
   },
   {
     href: "/reports",

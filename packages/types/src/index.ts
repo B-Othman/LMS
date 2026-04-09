@@ -56,5 +56,40 @@ export type {
   CreateEnrollmentPayload,
   BatchEnrollmentResult,
 } from "./enrollment";
-export type { Quiz, QuizQuestion, QuestionType, QuizOption, QuizAttempt, QuizAnswer } from "./quiz";
-export type { Certificate } from "./certificate";
+export type {
+  QuizStatus,
+  QuizQuestionType,
+  QuizAttemptStatus,
+  QuestionOption,
+  QuizLatestAttemptSummary,
+  QuizSummary,
+  QuizAttemptQuizSummary,
+  QuizQuestion,
+  Quiz,
+  QuizAttemptAnswerPayload,
+  QuizAttemptQuestionAnswer,
+  QuizAttemptQuestion,
+  QuizAttempt,
+  QuizAttemptListItem,
+  CreateQuizPayload,
+  UpdateQuizPayload,
+  QuizQuestionOptionInput,
+  CreateQuizQuestionPayload,
+  UpdateQuizQuestionPayload,
+  SubmitQuizAttemptPayload,
+} from "./quiz";
+export type {
+  CertificateTemplateLayout,
+  CertificateTemplateStatus,
+  CertificateStatus,
+  PublicCertificateVerificationStatus,
+  CertificateTemplateSummary,
+  CertificateTemplate,
+  Certificate,
+  CertificateDownloadLink,
+  CertificateListFilters,
+  CreateCertificateTemplatePayload,
+  UpdateCertificateTemplatePayload,
+  RevokeCertificatePayload,
+  PublicCertificateVerification,
+} from "./certificate";

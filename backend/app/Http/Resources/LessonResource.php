@@ -22,6 +22,10 @@ class LessonResource extends JsonResource
             'duration_minutes' => $this->duration_minutes,
             'sort_order' => $this->sort_order,
             'is_previewable' => $this->is_previewable,
+            'quiz' => $this->when(
+                $this->relationLoaded('quiz'),
+                fn () => $this->quiz ? (new QuizSummaryResource($this->quiz))->resolve() : null,
+            ),
             'resources' => LessonResourceResource::collection($this->whenLoaded('resources', $this->resources, collect()))->resolve(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

@@ -56,6 +56,9 @@ class LearnerCourseDetailResource extends JsonResource
                                 'duration_minutes' => $lesson->duration_minutes,
                                 'sort_order' => $lesson->sort_order,
                                 'is_previewable' => $lesson->is_previewable,
+                                'quiz' => $lesson->relationLoaded('quiz') && $lesson->quiz
+                                    ? (new QuizSummaryResource($lesson->quiz))->resolve()
+                                    : null,
                                 'progress' => $lesson->progress,
                             ];
                         })->values()->all(),

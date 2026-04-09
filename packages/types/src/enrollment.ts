@@ -1,3 +1,5 @@
+import type { QuizSummary } from "./quiz";
+
 export type EnrollmentStatus = "active" | "completed" | "dropped" | "expired";
 export type LessonProgressStatus = "not_started" | "in_progress" | "completed";
 
@@ -62,6 +64,7 @@ export interface LearnerLesson {
   duration_minutes: number | null;
   sort_order: number;
   is_previewable: boolean;
+  quiz?: QuizSummary | null;
   progress: LessonProgress;
 }
 

@@ -34,6 +34,13 @@ class StoreCourseRequest extends FormRequest
             'short_description' => ['nullable', 'string', 'max:500'],
             'visibility' => ['nullable', 'string', Rule::in(array_map(fn ($v) => $v->value, CourseVisibility::cases()))],
             'category_id' => ['nullable', 'integer', 'exists:course_categories,id'],
+            'certificate_template_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('certificate_templates', 'id')->where(
+                    fn ($query) => $query->where('tenant_id', $tenantId),
+                ),
+            ],
             'tag_ids' => ['nullable', 'array'],
             'tag_ids.*' => ['integer', 'exists:course_tags,id'],
         ];

@@ -43,6 +43,11 @@ class Course extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function certificateTemplate(): BelongsTo
+    {
+        return $this->belongsTo(CertificateTemplate::class, 'certificate_template_id');
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(CourseCategory::class, 'category_id');
@@ -61,6 +66,16 @@ class Course extends Model
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);
+    }
+
+    public function quizzes(): HasMany
+    {
+        return $this->hasMany(Quiz::class);
+    }
+
+    public function certificates(): HasMany
+    {
+        return $this->hasMany(Certificate::class);
     }
 
     public function isDraft(): bool

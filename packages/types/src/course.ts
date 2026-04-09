@@ -1,3 +1,5 @@
+import type { QuizSummary } from "./quiz";
+
 export type CourseStatus = "draft" | "published" | "archived";
 export type CourseVisibility = "public" | "private" | "restricted";
 export type LessonContentType = "video" | "document" | "text" | "quiz" | "assignment";
@@ -36,6 +38,13 @@ export interface Course {
   module_count: number;
   creator: { id: number; full_name: string } | null;
   certificate_template_id?: number | null;
+  certificate_template?: {
+    id: number;
+    name: string;
+    layout: "landscape" | "portrait";
+    status: "active" | "inactive";
+    is_default: boolean;
+  } | null;
   modules?: Module[];
   created_at: string;
   updated_at: string;
@@ -64,6 +73,7 @@ export interface Lesson {
   duration_minutes: number | null;
   sort_order: number;
   is_previewable: boolean;
+  quiz?: QuizSummary | null;
   resources: LessonResource[];
   created_at: string;
   updated_at: string;
@@ -98,6 +108,7 @@ export interface CreateCoursePayload {
   short_description?: string;
   visibility?: CourseVisibility;
   category_id?: number | null;
+  certificate_template_id?: number | null;
   tag_ids?: number[];
 }
 
@@ -108,6 +119,7 @@ export interface UpdateCoursePayload {
   short_description?: string;
   visibility?: CourseVisibility;
   category_id?: number | null;
+  certificate_template_id?: number | null;
   tag_ids?: number[];
 }
 

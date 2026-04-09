@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Events\CertificateIssued;
 use App\Events\CourseCompleted;
 use App\Events\EnrollmentCreated;
 use App\Listeners\QueueCourseCertificateEligibilityCheck;
+use App\Listeners\SendCertificateIssuedNotification;
 use App\Listeners\SendEnrollmentCreatedNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
@@ -19,6 +21,9 @@ class EventServiceProvider extends ServiceProvider
         ],
         CourseCompleted::class => [
             QueueCourseCertificateEligibilityCheck::class,
+        ],
+        CertificateIssued::class => [
+            SendCertificateIssuedNotification::class,
         ],
     ];
 }

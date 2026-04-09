@@ -31,7 +31,13 @@ class CourseService
 
     public function findCourse(int $id): Course
     {
-        return Course::with(['modules.lessons', 'category', 'tags', 'creator'])
+        return Course::with([
+            'modules.lessons.quiz' => fn ($query) => $query->withCount('questions'),
+            'category',
+            'certificateTemplate',
+            'tags',
+            'creator',
+        ])
             ->withCount(['enrollments', 'modules'])
             ->findOrFail($id);
     }
@@ -50,6 +56,7 @@ class CourseService
                 'short_description' => $data['short_description'] ?? null,
                 'visibility' => $data['visibility'] ?? 'private',
                 'category_id' => $data['category_id'] ?? null,
+                'certificate_template_id' => $data['certificate_template_id'] ?? null,
                 'status' => CourseStatus::Draft,
                 'created_by' => $userId,
             ]);
@@ -66,14 +73,25 @@ class CourseService
     public function updateCourse(Course $course, array $data): Course
     {
         return DB::transaction(function () use ($course, $data) {
-            $course->update(array_filter([
-                'title' => $data['title'] ?? null,
-                'slug' => $data['slug'] ?? null,
-                'description' => array_key_exists('description', $data) ? $data['description'] : null,
-                'short_description' => array_key_exists('short_description', $data) ? $data['short_description'] : null,
-                'visibility' => $data['visibility'] ?? null,
-                'category_id' => array_key_exists('category_id', $data) ? $data['category_id'] : null,
-            ], fn ($v) => $v !== null));
+            $updates = [];
+
+            foreach ([
+                'title',
+                'slug',
+                'description',
+                'short_description',
+                'visibility',
+                'category_id',
+                'certificate_template_id',
+            ] as $field) {
+                if (array_key_exists($field, $data)) {
+                    $updates[$field] = $data[$field];
+                }
+            }
+
+            if ($updates !== []) {
+                $course->update($updates);
+            }
 
             if (array_key_exists('tag_ids', $data)) {
                 $course->tags()->sync($data['tag_ids'] ?? []);
@@ -115,7 +133,7 @@ class CourseService
     public function duplicate(Course $course): Course
     {
         return DB::transaction(function () use ($course) {
-            $course->load('modules.lessons', 'tags');
+            $course->load('modules.lessons.quiz.questions.options', 'quizzes.questions.options', 'tags');
 
             $newCourse = $course->replicate(['slug']);
             $newCourse->title = $course->title.' (Copy)';
@@ -134,7 +152,18 @@ class CourseService
                     $newLesson = $lesson->replicate();
                     $newLesson->module_id = $newModule->id;
                     $newLesson->save();
+
+                    if ($lesson->quiz) {
+                        $this->duplicateQuiz($lesson->quiz, $newCourse->id, $newLesson->id);
+                    }
                 }
+            }
+
+            $standaloneQuizzes = $course->quizzes
+                ->filter(fn ($quiz) => $quiz->lesson_id === null);
+
+            foreach ($standaloneQuizzes as $quiz) {
+                $this->duplicateQuiz($quiz, $newCourse->id, null);
             }
 
             return $this->findCourse($newCourse->id);
@@ -193,7 +222,7 @@ class CourseService
 
     public function findLesson(int $id): Lesson
     {
-        return Lesson::with('resources')->findOrFail($id);
+        return Lesson::with(['resources', 'quiz' => fn ($query) => $query->withCount('questions')])->findOrFail($id);
     }
 
     /** @param array<string, mixed> $data */
@@ -248,8 +277,28 @@ class CourseService
     private function baseQuery(): Builder
     {
         return Course::query()
-            ->with(['category', 'tags', 'creator'])
+            ->with(['category', 'tags', 'creator', 'certificateTemplate'])
             ->withCount(['enrollments', 'modules']);
+    }
+
+    private function duplicateQuiz(\App\Models\Quiz $quiz, int $courseId, ?int $lessonId): void
+    {
+        $newQuiz = $quiz->replicate();
+        $newQuiz->course_id = $courseId;
+        $newQuiz->lesson_id = $lessonId;
+        $newQuiz->save();
+
+        foreach ($quiz->questions as $question) {
+            $newQuestion = $question->replicate();
+            $newQuestion->quiz_id = $newQuiz->id;
+            $newQuestion->save();
+
+            foreach ($question->options as $option) {
+                $newOption = $option->replicate();
+                $newOption->question_id = $newQuestion->id;
+                $newOption->save();
+            }
+        }
     }
 
     private function tenantId(): int
