@@ -1,15 +1,19 @@
 "use client";
 
+import type { AppNotification } from "@securecy/types";
 import type { ReactNode } from "react";
+import { useCallback } from "react";
 
 import {
   Alert,
   AppShell,
   CertificatesIcon,
+  ClipboardIcon,
   CoursesIcon,
   DashboardIcon,
   EmptyState,
   EnrollmentsIcon,
+  NotificationBell,
   ProtectedRoute,
   ReportsIcon,
   SettingsIcon,
@@ -17,7 +21,14 @@ import {
   useAuth,
   type NavigationItem,
 } from "@securecy/ui";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  adminMarkAllNotificationsRead,
+  adminMarkNotificationRead,
+  fetchAdminMyNotifications,
+  fetchAdminMyNotificationsUnreadCount,
+} from "@/lib/notifications";
+import { SearchPalette } from "./search-palette";
 
 const adminRoles = ["system_admin", "tenant_admin", "content_manager", "instructor"];
 
@@ -54,6 +65,12 @@ const navigationConfig: Array<NavigationItem & { requiredPermissions?: string[] 
     requiredPermissions: ["reports.view"],
   },
   {
+    href: "/audit-logs",
+    label: "Audit Log",
+    icon: <ClipboardIcon className="h-5 w-5" />,
+    requiredPermissions: ["users.view"],
+  },
+  {
     href: "/settings",
     label: "Settings",
     icon: <SettingsIcon className="h-5 w-5" />,
@@ -63,6 +80,7 @@ const navigationConfig: Array<NavigationItem & { requiredPermissions?: string[] 
 
 export function AdminAppFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const {
     user,
     logout,
@@ -70,6 +88,16 @@ export function AdminAppFrame({ children }: { children: ReactNode }) {
     clearForbiddenMessage,
     hasAnyPermission,
   } = useAuth();
+
+  const getUnreadCount = useCallback(() => fetchAdminMyNotificationsUnreadCount(), []);
+  const getNotifications = useCallback(() => fetchAdminMyNotifications(), []);
+  const doMarkRead = useCallback((id: number) => adminMarkNotificationRead(id), []);
+  const doMarkAllRead = useCallback(() => adminMarkAllNotificationsRead(), []);
+
+  function handleNotificationNavigate(n: AppNotification) {
+    if (n.type === "enrollment_created") router.push("/enrollments");
+    else if (n.type === "certificate_issued") router.push("/certificates");
+  }
 
   if (pathname === "/login") {
     return <>{children}</>;
@@ -102,6 +130,19 @@ export function AdminAppFrame({ children }: { children: ReactNode }) {
         userName={userName}
         userEmail={user?.email ?? ""}
         onLogout={logout}
+        topBarEnd={
+          <>
+            <SearchPalette onNavigate={(path) => router.push(path)} />
+            <NotificationBell
+              fetchUnreadCount={getUnreadCount}
+              fetchNotifications={getNotifications}
+              markRead={doMarkRead}
+              markAllRead={doMarkAllRead}
+              onViewAll={() => router.push("/notifications")}
+              onNavigate={handleNotificationNavigate}
+            />
+          </>
+        }
         notice={
           forbiddenMessage ? (
             <Alert tone="error" title="Access Restricted">

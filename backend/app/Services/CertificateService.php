@@ -16,11 +16,14 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class CertificateService
 {
+    public function __construct(
+        private readonly AuditService $audit,
+    ) {}
+
     /** @param array<string, mixed> $filters */
     public function paginateCertificates(array $filters): LengthAwarePaginator
     {
@@ -141,6 +144,14 @@ class CertificateService
                 ]),
             ])->save();
 
+            $this->audit->log(
+                'certificate.issued',
+                $certificate,
+                null,
+                $enrollment->tenant_id,
+                "Certificate issued to {$enrollment->user?->email} for \"{$enrollment->course?->title}\"",
+            );
+
             DB::afterCommit(function () use ($certificate) {
                 GenerateCertificatePdfJob::dispatch($certificate->id)->afterCommit();
             });
@@ -160,14 +171,13 @@ class CertificateService
             'revoked_reason' => $reason,
         ])->save();
 
-        Log::info('Certificate revoked', [
-            'certificate_id' => $certificate->id,
-            'enrollment_id' => $certificate->enrollment_id,
-            'user_id' => $certificate->user_id,
-            'course_id' => $certificate->course_id,
-            'admin_id' => $adminId,
-            'reason' => $reason,
-        ]);
+        $this->audit->log(
+            'certificate.revoked',
+            $certificate,
+            $adminId,
+            $certificate->tenant_id,
+            "Certificate revoked: {$reason}",
+        );
 
         return $certificate->fresh(['user', 'course', 'template']) ?? $certificate;
     }

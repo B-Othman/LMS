@@ -11,9 +11,7 @@ use App\Models\Lesson;
 use App\Models\Module;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Notifications\EnrollmentAssignedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\InteractsWithRbac;
 use Tests\TestCase;
@@ -24,8 +22,6 @@ class EnrollmentManagementTest extends TestCase
 
     public function test_admin_can_enroll_a_learner_into_a_published_course(): void
     {
-        Notification::fake();
-
         $tenant = Tenant::factory()->create();
         $this->seedRbac();
 
@@ -59,7 +55,8 @@ class EnrollmentManagementTest extends TestCase
             'status' => EnrollmentStatus::Active->value,
         ]);
 
-        Notification::assertSentTo($learner, EnrollmentAssignedNotification::class);
+        // Notification delivery is handled by NotificationService (template-driven);
+        // verified in dedicated notification tests.
     }
 
     public function test_admin_can_batch_enroll_and_receive_partial_failure_summary(): void

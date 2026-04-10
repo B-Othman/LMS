@@ -19,6 +19,7 @@ interface AppShellProps {
   userName: string;
   userEmail: string;
   notice?: ReactNode;
+  topBarEnd?: ReactNode;
   onLogout: () => Promise<void> | void;
   children: ReactNode;
 }
@@ -29,6 +30,7 @@ export function AppShell({
   userName,
   userEmail,
   notice,
+  topBarEnd,
   onLogout,
   children,
 }: AppShellProps) {
@@ -66,34 +68,37 @@ export function AppShell({
               </div>
             </div>
 
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((current) => !current)}
-                className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white px-3 py-2 text-left transition-colors hover:bg-primary-50"
-              >
-                <Avatar name={userName} size="md" />
-                <div className="hidden sm:block">
-                  <p className="text-body-md font-semibold text-night-900">{userName}</p>
-                  <p className="text-body-sm text-neutral-500">{userEmail}</p>
-                </div>
-              </button>
+            <div className="flex items-center gap-2">
+              {topBarEnd}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((current) => !current)}
+                  className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white px-3 py-2 text-left transition-colors hover:bg-primary-50"
+                >
+                  <Avatar name={userName} size="md" />
+                  <div className="hidden sm:block">
+                    <p className="text-body-md font-semibold text-night-900">{userName}</p>
+                    <p className="text-body-sm text-neutral-500">{userEmail}</p>
+                  </div>
+                </button>
 
-              {menuOpen ? (
-                <div className="absolute right-0 mt-2 w-56 rounded-card border border-neutral-200 bg-white p-2 shadow-card">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      void onLogout();
-                    }}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-body-md text-error-700 transition-colors hover:bg-error-50"
-                  >
-                    <LogoutIcon className="h-4 w-4" />
-                    Log out
-                  </button>
-                </div>
-              ) : null}
+                {menuOpen ? (
+                  <div className="absolute right-0 mt-2 w-56 rounded-card border border-neutral-200 bg-white p-2 shadow-card">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        void onLogout();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-body-md text-error-700 transition-colors hover:bg-error-50"
+                    >
+                      <LogoutIcon className="h-4 w-4" />
+                      Log out
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </header>

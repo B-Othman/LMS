@@ -69,14 +69,14 @@ class CourseController extends Controller
         );
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(\Illuminate\Http\Request $request, int $id): JsonResponse
     {
         $course = $this->courses->findCourse($id);
 
         $this->authorize('delete', $course);
 
         try {
-            $this->courses->deleteCourse($course);
+            $this->courses->deleteCourse($course, $request->user()->id);
         } catch (\DomainException $e) {
             return $this->error($e->getMessage(), 422);
         }
@@ -84,14 +84,14 @@ class CourseController extends Controller
         return $this->success(message: 'Course deleted successfully.');
     }
 
-    public function publish(int $id): JsonResponse
+    public function publish(\Illuminate\Http\Request $request, int $id): JsonResponse
     {
         $course = $this->courses->findCourse($id);
 
         $this->authorize('publish', $course);
 
         try {
-            $updated = $this->courses->publish($course);
+            $updated = $this->courses->publish($course, $request->user()->id);
         } catch (\DomainException $e) {
             return $this->error($e->getMessage(), 422);
         }
@@ -102,13 +102,13 @@ class CourseController extends Controller
         );
     }
 
-    public function archive(int $id): JsonResponse
+    public function archive(\Illuminate\Http\Request $request, int $id): JsonResponse
     {
         $course = $this->courses->findCourse($id);
 
         $this->authorize('publish', $course);
 
-        $updated = $this->courses->archive($course);
+        $updated = $this->courses->archive($course, $request->user()->id);
 
         return $this->success(
             (new CourseResource($updated))->detailed(),

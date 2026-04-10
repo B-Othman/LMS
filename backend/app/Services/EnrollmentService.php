@@ -14,12 +14,12 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class EnrollmentService
 {
     public function __construct(
         private readonly ProgressService $progress,
+        private readonly AuditService $audit,
     ) {}
 
     /** @param array<string, mixed> $filters */
@@ -93,6 +93,14 @@ class EnrollmentService
                 'completed_lessons_count' => 0,
             ]);
 
+            $this->audit->log(
+                'enrollment.created',
+                $enrollment,
+                $adminId,
+                $course->tenant_id,
+                "User {$user->email} enrolled in \"{$course->title}\"",
+            );
+
             DB::afterCommit(function () use ($enrollment) {
                 event(new EnrollmentCreated(
                     $enrollment->loadMissing('user', 'course'),
@@ -159,12 +167,13 @@ class EnrollmentService
             'completed_at' => null,
         ]);
 
-        Log::info('Enrollment dropped', [
-            'enrollment_id' => $enrollment->id,
-            'admin_id' => $adminId,
-            'user_id' => $enrollment->user_id,
-            'course_id' => $enrollment->course_id,
-        ]);
+        $this->audit->log(
+            'enrollment.dropped',
+            $enrollment,
+            $adminId,
+            $enrollment->tenant_id,
+            "Enrollment dropped by admin {$adminId}",
+        );
 
         return $this->progress->prepareEnrollmentSummary(
             $enrollment->refresh()->loadMissing('user', 'course'),

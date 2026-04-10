@@ -21,6 +21,7 @@ class Enrollment extends Model
         'enrolled_by',
         'enrolled_at',
         'due_at',
+        'reminder_sent_at',
         'completed_at',
         'status',
         'progress_percent',
@@ -32,6 +33,7 @@ class Enrollment extends Model
         return [
             'enrolled_at' => 'datetime',
             'due_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
             'completed_at' => 'datetime',
             'status' => EnrollmentStatus::class,
             'progress_percent' => 'integer',

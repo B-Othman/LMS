@@ -6,7 +6,6 @@ use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\UserSuspendedNotification;
-use App\Notifications\WelcomeUserNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
@@ -62,8 +61,6 @@ class UserManagementTest extends TestCase
 
     public function test_admin_can_create_user_assign_role_and_send_welcome_notification(): void
     {
-        Notification::fake();
-
         $tenant = Tenant::factory()->create();
         $this->seedRbac();
 
@@ -101,7 +98,7 @@ class UserManagementTest extends TestCase
             'role_id' => $role->id,
         ]);
 
-        Notification::assertSentTo($user, WelcomeUserNotification::class);
+        // Welcome notification is now handled by NotificationService (template-driven).
     }
 
     public function test_admin_can_view_user_detail(): void

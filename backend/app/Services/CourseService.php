@@ -7,6 +7,7 @@ use App\Filters\CourseFilters;
 use App\Models\Course;
 use App\Models\Lesson;
 use App\Models\Module;
+use App\Models\User;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +18,7 @@ class CourseService
 {
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly AuditService $audit,
     ) {}
 
     /** @param array<string, mixed> $filters */
@@ -47,9 +49,10 @@ class CourseService
     {
         return DB::transaction(function () use ($userId, $data) {
             $slug = $data['slug'] ?? Str::slug($data['title']);
+            $tenantId = $this->tenantId();
 
             $course = Course::create([
-                'tenant_id' => $this->tenantId(),
+                'tenant_id' => $tenantId,
                 'title' => $data['title'],
                 'slug' => $slug,
                 'description' => $data['description'] ?? null,
@@ -64,6 +67,8 @@ class CourseService
             if (! empty($data['tag_ids'])) {
                 $course->tags()->sync($data['tag_ids']);
             }
+
+            $this->audit->log('course.created', $course, $userId, $tenantId, "Course \"{$course->title}\" created");
 
             return $this->findCourse($course->id);
         });
@@ -101,16 +106,18 @@ class CourseService
         });
     }
 
-    public function deleteCourse(Course $course): void
+    public function deleteCourse(Course $course, int $actorId): void
     {
         if ($course->enrollments()->exists()) {
             throw new \DomainException('Cannot delete a course with active enrollments.');
         }
 
+        $this->audit->log('course.deleted', $course, $actorId, $course->tenant_id, "Course \"{$course->title}\" deleted");
+
         $course->delete();
     }
 
-    public function publish(Course $course): Course
+    public function publish(Course $course, int $actorId): Course
     {
         $moduleWithLesson = $course->modules()->whereHas('lessons')->exists();
 
@@ -120,12 +127,16 @@ class CourseService
 
         $course->update(['status' => CourseStatus::Published]);
 
+        $this->audit->log('course.published', $course, $actorId, $course->tenant_id, "Course \"{$course->title}\" published");
+
         return $this->findCourse($course->id);
     }
 
-    public function archive(Course $course): Course
+    public function archive(Course $course, int $actorId): Course
     {
         $course->update(['status' => CourseStatus::Archived]);
+
+        $this->audit->log('course.archived', $course, $actorId, $course->tenant_id, "Course \"{$course->title}\" archived");
 
         return $this->findCourse($course->id);
     }

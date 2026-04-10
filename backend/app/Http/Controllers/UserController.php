@@ -63,7 +63,7 @@ class UserController extends Controller
 
         $this->authorize('update', $user);
 
-        $updatedUser = $this->users->updateUser($user, $request->validated());
+        $updatedUser = $this->users->updateUser($request->user(), $user, $request->validated());
 
         return $this->success(
             new UserResource($updatedUser),
@@ -71,13 +71,13 @@ class UserController extends Controller
         );
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(\Illuminate\Http\Request $request, int $id): JsonResponse
     {
         $user = $this->users->findUser($id);
 
         $this->authorize('delete', $user);
 
-        $this->users->deleteUser($user);
+        $this->users->deleteUser($request->user(), $user);
 
         return $this->success(
             message: 'User deleted successfully.',

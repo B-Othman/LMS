@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             PermissionSeeder::class,
             RoleSeeder::class,
+            NotificationTemplateSeeder::class,
         ]);
 
         // Create default System Admin

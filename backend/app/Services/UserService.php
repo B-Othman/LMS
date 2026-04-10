@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
 use App\Enums\UserStatus;
 use App\Filters\UserFilters;
 use App\Models\User;
 use App\Notifications\UserSuspendedNotification;
-use App\Notifications\WelcomeUserNotification;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,6 +20,8 @@ class UserService
     public function __construct(
         private readonly RoleManagementService $roleManagement,
         private readonly TenantContext $tenantContext,
+        private readonly NotificationService $notificationService,
+        private readonly AuditService $audit,
     ) {}
 
     /**
@@ -58,8 +60,23 @@ class UserService
 
             $this->roleManagement->syncRoles($actor, $user, $data['role_ids']);
 
-            $tenantName = $this->tenantContext->tenant()?->name ?? 'Securecy';
-            DB::afterCommit(fn () => $user->notify(new WelcomeUserNotification($tenantName)));
+            $loginUrl = config('app.frontend_url', 'http://localhost:3000').'/login';
+            DB::afterCommit(fn () => $this->notificationService->send(
+                $user->id,
+                NotificationType::Welcome,
+                [
+                    'user_name' => $user->full_name,
+                    'login_url' => $loginUrl,
+                ],
+            ));
+
+            $this->audit->log(
+                'user.created',
+                $user,
+                $actor->id,
+                $tenantId,
+                "User {$user->email} created by {$actor->email}",
+            );
 
             return $this->findUser($user->id);
         });
@@ -68,9 +85,10 @@ class UserService
     /**
      * @param  array{first_name: string, last_name: string, email: string, status: string}  $data
      */
-    public function updateUser(User $user, array $data): User
+    public function updateUser(User $actor, User $user, array $data): User
     {
-        return DB::transaction(function () use ($user, $data) {
+        return DB::transaction(function () use ($actor, $user, $data) {
+            $before = $user->only(['first_name', 'last_name', 'email', 'status']);
             $wasSuspended = $user->status === UserStatus::Suspended;
 
             $user->update([
@@ -80,8 +98,28 @@ class UserService
                 'status' => $data['status'],
             ]);
 
-            if (! $wasSuspended && $user->status === UserStatus::Suspended) {
+            $after = $user->only(['first_name', 'last_name', 'email', 'status']);
+            $isSuspended = $user->status === UserStatus::Suspended;
+
+            if (! $wasSuspended && $isSuspended) {
                 DB::afterCommit(fn () => $user->notify(new UserSuspendedNotification));
+
+                $this->audit->log(
+                    'user.suspended',
+                    $user,
+                    $actor->id,
+                    $user->tenant_id,
+                    "User {$user->email} suspended by {$actor->email}",
+                );
+            } else {
+                $this->audit->log(
+                    'user.updated',
+                    $user,
+                    $actor->id,
+                    $user->tenant_id,
+                    "User {$user->email} updated by {$actor->email}",
+                    $this->audit->diff($before, $after),
+                );
             }
 
             return $this->findUser($user->id);
@@ -93,12 +131,31 @@ class UserService
      */
     public function syncUserRoles(User $actor, User $user, array $roleIds): User
     {
-        return $this->roleManagement->syncRoles($actor, $user, $roleIds);
+        $updated = $this->roleManagement->syncRoles($actor, $user, $roleIds);
+
+        $this->audit->log(
+            'user.role_assigned',
+            $user,
+            $actor->id,
+            $user->tenant_id,
+            "Roles updated for {$user->email} by {$actor->email}",
+            ['role_ids' => $roleIds],
+        );
+
+        return $updated;
     }
 
-    public function deleteUser(User $user): void
+    public function deleteUser(User $actor, User $user): void
     {
-        DB::transaction(function () use ($user) {
+        DB::transaction(function () use ($actor, $user) {
+            $this->audit->log(
+                'user.deleted',
+                $user,
+                $actor->id,
+                $user->tenant_id,
+                "User {$user->email} deleted by {$actor->email}",
+            );
+
             $user->tokens()->delete();
             $user->delete();
         });

@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthService
 {
+    public function __construct(
+        private readonly AuditService $audit,
+    ) {}
+
     /**
      * @return array{user: User, token: string}
      *
@@ -37,11 +41,15 @@ class AuthService
 
         $user->load('roles.permissions');
 
+        $this->audit->log('user.login', $user, $user->id, $user->tenant_id, "User {$user->email} logged in");
+
         return ['user' => $user, 'token' => $token];
     }
 
     public function logout(User $user): void
     {
+        $this->audit->log('user.logout', $user, $user->id, $user->tenant_id, "User {$user->email} logged out");
+
         $user->currentAccessToken()->delete();
     }
 

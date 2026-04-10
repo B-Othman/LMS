@@ -46,4 +46,11 @@ export {
   CopyIcon,
   ArchiveIcon,
   SendIcon,
+  BellIcon,
+  CheckCircleIcon,
+  AwardIcon,
+  BookOpenIcon,
+  ClockIcon,
+  XCircleIcon,
 } from "./icons";
+export { NotificationBell } from "./notification-bell";

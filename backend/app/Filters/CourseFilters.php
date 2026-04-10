@@ -17,6 +17,7 @@ class CourseFilters
         $this->applyStatus($query);
         $this->applyVisibility($query);
         $this->applyCategory($query);
+        $this->applyTags($query);
         $this->applySorting($query);
 
         return $query;
@@ -30,12 +31,10 @@ class CourseFilters
             return;
         }
 
-        $term = '%'.mb_strtolower($search).'%';
-
-        $query->where(function (Builder $builder) use ($term) {
-            $builder->whereRaw('LOWER(title) LIKE ?', [$term])
-                ->orWhereRaw('LOWER(short_description) LIKE ?', [$term]);
-        });
+        $query->whereRaw(
+            "to_tsvector('english', coalesce(title,'') || ' ' || coalesce(description,'') || ' ' || coalesce(short_description,'')) @@ plainto_tsquery('english', ?)",
+            [$search],
+        );
     }
 
     private function applyStatus(Builder $query): void
@@ -65,8 +64,29 @@ class CourseFilters
         }
     }
 
+    private function applyTags(Builder $query): void
+    {
+        $tagIds = $this->filters['tag_ids'] ?? null;
+
+        if (is_array($tagIds) && count($tagIds) > 0) {
+            $query->whereHas('tags', fn (Builder $q) => $q->whereIn('course_tags.id', $tagIds));
+        }
+    }
+
     private function applySorting(Builder $query): void
     {
+        $search = trim((string) ($this->filters['search'] ?? ''));
+
+        // When searching, sort by relevance first
+        if ($search !== '') {
+            $query->orderByRaw(
+                "ts_rank(to_tsvector('english', coalesce(title,'') || ' ' || coalesce(description,'') || ' ' || coalesce(short_description,'')), plainto_tsquery('english', ?)) DESC",
+                [$search],
+            );
+
+            return;
+        }
+
         $sortBy = (string) ($this->filters['sort_by'] ?? 'created_at');
         $direction = strtolower((string) ($this->filters['sort_dir'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
 
