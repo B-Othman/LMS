@@ -64,6 +64,7 @@ export interface LearnerLesson {
   duration_minutes: number | null;
   sort_order: number;
   is_previewable: boolean;
+  content_json: Record<string, unknown> | null;
   quiz?: QuizSummary | null;
   progress: LessonProgress;
 }

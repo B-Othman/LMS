@@ -152,6 +152,7 @@ function LessonStatusIcon({ status }: { status: LessonProgressStatus }) {
 }
 
 function formatLessonType(value: string): string {
+  if (value === "scorm") return "SCORM";
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

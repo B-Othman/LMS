@@ -93,3 +93,45 @@ export type {
   RevokeCertificatePayload,
   PublicCertificateVerification,
 } from "./certificate";
+export type {
+  SearchUserResult,
+  SearchCourseResult,
+  SearchResults,
+} from "./search";
+export type {
+  AuditActor,
+  AuditLog,
+  AuditLogChanges,
+} from "./audit";
+export type {
+  ReportType,
+  ExportFormat,
+  ExportStatus,
+  OverviewStats,
+  CompletionRow,
+  LearnerProgressRow,
+  AssessmentRow,
+  QuestionBreakdownRow,
+  CourseDetailReport,
+  ReportExport,
+  CreateExportPayload,
+} from "./report";
+export type {
+  PackageStandard,
+  PackageStatus,
+  LaunchSessionStatus,
+  ScormScoItem,
+  ContentPackageVersion,
+  ContentPackage,
+  ScormLaunchResult,
+} from "./scorm";
+export type {
+  NotificationChannel,
+  NotificationStatus,
+  NotificationType,
+  AppNotification,
+  NotificationPreference,
+  NotificationTemplate,
+  UpdateNotificationTemplatePayload,
+  UpdateNotificationPreferencesPayload,
+} from "./notification";
