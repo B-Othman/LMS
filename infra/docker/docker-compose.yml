@@ -1,0 +1,183 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Securecy LMS — development environment
+# Usage: docker compose -f infra/docker/docker-compose.yml up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  lms:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+x-php-common: &php-common
+  build:
+    context: ../../
+    dockerfile: infra/docker/Dockerfile.api
+  env_file:
+    - .env
+  volumes:
+    - ../../backend:/var/www/html
+    - /var/www/html/vendor         # keep vendor inside container
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks:
+    - lms
+  restart: unless-stopped
+
+services:
+
+  # ── Next.js learner app ──────────────────────────────────────────────────
+  web:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        APP: web
+    env_file: .env
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-Securecy LMS}
+    ports:
+      - "3000:3000"
+    networks:
+      - lms
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Next.js admin app ───────────────────────────────────────────────────
+  admin:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        APP: admin
+    env_file: .env
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-Securecy LMS}
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    networks:
+      - lms
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Laravel API (PHP-FPM + Nginx) ────────────────────────────────────────
+  api:
+    <<: *php-common
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Queue worker ─────────────────────────────────────────────────────────
+  worker:
+    <<: *php-common
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    healthcheck:
+      test: ["CMD-SHELL", "php artisan queue:monitor redis:default 2>/dev/null || exit 0"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # ── Scheduler ────────────────────────────────────────────────────────────
+  scheduler:
+    <<: *php-common
+    # Laravel requires the scheduler to be called every minute
+    command:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          php artisan schedule:run --no-interaction
+          sleep 60
+        done
+
+  # ── PostgreSQL 16 ────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-securecy_lms}
+      POSTGRES_USER: ${DB_USERNAME:-securecy}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lms
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-securecy} -d ${DB_DATABASE:-securecy_lms}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Redis 7 ──────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - lms
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── MinIO (local S3) ─────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio_data:/data
+    networks:
+      - lms
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Mailpit (local SMTP + UI) ────────────────────────────────────────────
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+    networks:
+      - lms
+    restart: unless-stopped

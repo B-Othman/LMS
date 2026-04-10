@@ -1,0 +1,112 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+# Only run if CI passed
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment: production
+
+    env:
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+      REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      # ── Authenticate with container registry ──────────────────────────────
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Build and push images ─────────────────────────────────────────────
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infra/docker/Dockerfile.api
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/securecy-lms-api:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/securecy-lms-api:latest
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/securecy-lms-api:latest
+          cache-to: type=inline
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          build-args: APP=web
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/securecy-lms-web:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/securecy-lms-web:latest
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/securecy-lms-web:latest
+          cache-to: type=inline
+
+      - name: Build and push admin image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          build-args: APP=admin
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/securecy-lms-admin:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY }}/securecy-lms-admin:latest
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/securecy-lms-admin:latest
+          cache-to: type=inline
+
+      # ── Run migrations ────────────────────────────────────────────────────
+      # TODO: Replace with your deployment mechanism (SSH, ECS exec, kubectl exec, etc.)
+      - name: Run database migrations
+        run: |
+          echo "TODO: run 'php artisan migrate --force' on production"
+          echo "Examples:"
+          echo "  SSH:        ssh deploy@host 'cd /app && php artisan migrate --force'"
+          echo "  ECS:        aws ecs run-task --task-definition migrate-task ..."
+          echo "  Kubernetes: kubectl exec deploy/api -- php artisan migrate --force"
+
+      # ── Deploy ────────────────────────────────────────────────────────────
+      # TODO: Replace with your deployment target
+      - name: Deploy services
+        run: |
+          echo "TODO: trigger deployment with image tag $IMAGE_TAG"
+          echo "Examples:"
+          echo "  Docker Swarm: docker stack deploy --compose-file docker-compose.prod.yml lms"
+          echo "  Kubernetes:   kubectl set image deployment/api api=${{ env.REGISTRY }}/securecy-lms-api:$IMAGE_TAG"
+          echo "  ECS:          aws ecs update-service --cluster lms --service api --force-new-deployment"
+          echo "  Fly.io:       fly deploy --image ${{ env.REGISTRY }}/securecy-lms-api:$IMAGE_TAG"
+
+      # ── Warm caches ───────────────────────────────────────────────────────
+      - name: Clear and warm application caches
+        run: |
+          echo "TODO: run after deploy:"
+          echo "  php artisan config:cache"
+          echo "  php artisan route:cache"
+          echo "  php artisan view:cache"
+
+      # ── Notify ────────────────────────────────────────────────────────────
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Deploy ${{ job.status }} for $IMAGE_TAG"
+          # TODO: post to Slack/Teams/PagerDuty
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          #   -d "{\"text\": \"Deploy ${{ job.status }}: \`$IMAGE_TAG\`\"}"

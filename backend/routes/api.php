@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\ScormPlayerController;
 use App\Http\Controllers\ReportController;
@@ -42,6 +43,9 @@ use Illuminate\Support\Facades\Route;
 | API Routes — all routes are prefixed with /api/v1
 |--------------------------------------------------------------------------
 */
+
+// Health check — no auth required, used by Docker/load balancer
+Route::get('/health', HealthController::class);
 
 // Public auth routes (rate-limited)
 Route::prefix('auth')->group(function () {

@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Securecy LMS — Next.js image (shared for web and admin)
+# Build arg APP selects which app to build: "web" or "admin"
+# Build context: repo root  (docker build --build-arg APP=web -f infra/docker/Dockerfile.web .)
+# ─────────────────────────────────────────────────────────────────────────────
+
+ARG APP=web
+
+# ── Dependency install stage ─────────────────────────────────────────────────
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy workspace manifests first for layer caching
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+# Copy all package manifests (needed for workspace resolution)
+COPY packages/types/package.json      packages/types/
+COPY packages/ui/package.json         packages/ui/
+COPY packages/config/package.json     packages/config/
+
+ARG APP
+COPY apps/${APP}/package.json         apps/${APP}/
+
+RUN pnpm install --frozen-lockfile
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy installed node_modules from deps stage
+COPY --from=deps /app/node_modules        ./node_modules
+COPY --from=deps /app/packages/types/node_modules   ./packages/types/node_modules 2>/dev/null || true
+COPY --from=deps /app/packages/ui/node_modules      ./packages/ui/node_modules 2>/dev/null || true
+COPY --from=deps /app/packages/config/node_modules  ./packages/config/node_modules 2>/dev/null || true
+
+# Copy workspace config
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+# Copy shared packages source
+COPY packages/ ./packages/
+
+# Copy target app
+ARG APP
+COPY apps/${APP}/ ./apps/${APP}/
+
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+RUN pnpm --filter @securecy/${APP} build
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM node:20-alpine AS runtime
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+ARG APP
+ENV APP=${APP}
+
+# Copy Next.js standalone build output
+COPY --from=builder /app/apps/${APP}/.next/standalone ./
+COPY --from=builder /app/apps/${APP}/.next/static      ./apps/${APP}/.next/static
+COPY --from=builder /app/apps/${APP}/public            ./apps/${APP}/public 2>/dev/null || true
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001 -G nodejs
+USER nextjs
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget -qO- http://localhost:${PORT:-3000}/ || exit 1
+
+CMD ["sh", "-c", "node apps/${APP}/server.js"]
