@@ -9,6 +9,7 @@ enum LessonType: string
     case Text = 'text';
     case Quiz = 'quiz';
     case Assignment = 'assignment';
+    case Scorm = 'scorm';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum LessonType: string
             self::Text => 'Text',
             self::Quiz => 'Quiz',
             self::Assignment => 'Assignment',
+            self::Scorm => 'SCORM',
         };
     }
 }

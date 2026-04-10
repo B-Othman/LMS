@@ -46,6 +46,7 @@ import { LessonSidebar } from "./lesson-sidebar";
 import { LearnerStatusBadge } from "./learner-status-badge";
 import { PDFViewer } from "./pdf-viewer";
 import { QuizLessonPlayer } from "./quiz-lesson-player";
+import { ScormLessonPlayer } from "./scorm-lesson-player";
 import { VideoPlayer } from "./video-player";
 
 interface LearnerCourseDetailPageProps {
@@ -128,6 +129,7 @@ export function LearnerCourseDetailPage({
     0;
   const canTrackProgress = courseDetail?.enrollment.status === "active";
   const isQuizLesson = currentLesson?.type === "quiz";
+  const isScormLesson = currentLesson?.type === "scorm";
 
   useEffect(() => {
     if (!courseDetail || selectedLessonId === null) {
@@ -154,6 +156,20 @@ export function LearnerCourseDetailPage({
     setLessonError(null);
 
     const startPromise = canTrackProgress ? startLesson(currentLessonId) : Promise.resolve(null);
+
+    // SCORM lessons are self-contained — no separate content fetch needed
+    if (currentLesson?.type === "scorm") {
+      startPromise
+        .then((detail) => {
+          if (cancelled) return;
+          setLessonContent(null);
+          if (detail) setCourseDetail(detail);
+        })
+        .catch(() => { /* ignore */ })
+        .finally(() => { if (!cancelled) setIsLessonLoading(false); });
+
+      return () => { cancelled = true; };
+    }
 
     if (currentLesson?.type === "quiz") {
       startPromise
@@ -383,6 +399,26 @@ export function LearnerCourseDetailPage({
                           <div className="h-6 w-2/3 animate-pulse rounded bg-neutral-100" />
                           <div className="h-24 animate-pulse rounded bg-neutral-100" />
                         </div>
+                      ) : isScormLesson ? (
+                        (() => {
+                          const meta = currentLesson?.content_json as { package_version_id?: number } | null;
+                          const versionId = meta?.package_version_id;
+                          return versionId ? (
+                            <ScormLessonPlayer
+                              packageVersionId={versionId}
+                              onExit={navigateToOverview}
+                              onCompleted={async () => {
+                                await refreshCourseDetail();
+                                setCompletionVisible(true);
+                              }}
+                            />
+                          ) : (
+                            <EmptyState
+                              title="SCORM content unavailable"
+                              description="This lesson has not been fully configured yet."
+                            />
+                          );
+                        })()
                       ) : isQuizLesson ? (
                         currentLesson.quiz ? (
                           <div className="space-y-6">
@@ -856,6 +892,7 @@ function primaryActionLabel(detail: LearnerCourseDetail): string {
 }
 
 function formatLessonType(value: string): string {
+  if (value === "scorm") return "SCORM";
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

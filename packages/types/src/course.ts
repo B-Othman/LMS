@@ -2,7 +2,7 @@ import type { QuizSummary } from "./quiz";
 
 export type CourseStatus = "draft" | "published" | "archived";
 export type CourseVisibility = "public" | "private" | "restricted";
-export type LessonContentType = "video" | "document" | "text" | "quiz" | "assignment";
+export type LessonContentType = "video" | "document" | "text" | "quiz" | "assignment" | "scorm";
 export type ResourceType = "primary" | "supplementary" | "download";
 
 export interface CourseCategory {

@@ -453,6 +453,11 @@ class ProgressService
         }
     }
 
+    public function firstOrCreateProgressPublic(Enrollment $enrollment, Lesson $lesson): LessonProgress
+    {
+        return $this->firstOrCreateProgress($enrollment, $lesson);
+    }
+
     private function firstOrCreateProgress(Enrollment $enrollment, Lesson $lesson): LessonProgress
     {
         return LessonProgress::query()->firstOrCreate(

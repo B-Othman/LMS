@@ -38,6 +38,7 @@ import { api } from "@/lib/api";
 import { fetchCertificateTemplates } from "@/lib/certificates";
 
 import { QuizBuilder } from "./quiz-builder";
+import { ScormUploadModal } from "./scorm-upload-modal";
 import { StatusBadge } from "./status-badge";
 
 const tabItems: TabItem[] = [
@@ -90,6 +91,8 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
   // Structure state
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
+
+  const [showScormModal, setShowScormModal] = useState(false);
 
   // Add module
   const [addingModule, setAddingModule] = useState(false);
@@ -455,9 +458,38 @@ export function CourseEditPage({ courseId }: CourseEditPageProps) {
           </Card>
         ) : null}
 
+        {showScormModal ? (
+          <ScormUploadModal
+            courseId={courseId}
+            onClose={() => setShowScormModal(false)}
+            onPublished={() => {
+              setShowScormModal(false);
+              void loadCourse();
+            }}
+          />
+        ) : null}
+
         {/* Structure Tab */}
         {activeTab === "structure" ? (
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
+            {/* SCORM import banner */}
+            <div className="col-span-full -mb-2">
+              <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                <div>
+                  <p className="text-body-sm font-semibold text-night-800">Import SCORM Package</p>
+                  <p className="text-body-sm text-neutral-500">Upload a SCORM 1.2 ZIP to create lessons automatically.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowScormModal(true)}
+                >
+                  Import SCORM
+                </Button>
+              </div>
+            </div>
+
             {/* Module List */}
             <Card padded={false} className="overflow-hidden">
               <div className="border-b border-neutral-200 px-4 py-3">
@@ -772,6 +804,7 @@ function LessonTypeIcon({ type }: { type: LessonContentType }) {
     text: "text-neutral-500",
     quiz: "text-success-500",
     assignment: "text-error-500",
+    scorm: "text-purple-600",
   };
 
   const labels: Record<LessonContentType, string> = {
@@ -780,6 +813,7 @@ function LessonTypeIcon({ type }: { type: LessonContentType }) {
     text: "T",
     quiz: "?",
     assignment: "✎",
+    scorm: "S",
   };
 
   return (

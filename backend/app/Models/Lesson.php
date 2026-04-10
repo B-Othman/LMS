@@ -74,4 +74,22 @@ class Lesson extends Model
     {
         return $this->type === LessonType::Quiz;
     }
+
+    public function isScorm(): bool
+    {
+        return $this->type === LessonType::Scorm;
+    }
+
+    /** @return array{package_version_id: int, sco_identifier: string}|null */
+    public function scormMeta(): ?array
+    {
+        if (! $this->isScorm() || ! is_array($this->content_json)) {
+            return null;
+        }
+
+        return [
+            'package_version_id' => (int) ($this->content_json['package_version_id'] ?? 0),
+            'sco_identifier' => (string) ($this->content_json['sco_identifier'] ?? ''),
+        ];
+    }
 }

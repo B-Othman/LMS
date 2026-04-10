@@ -1,5 +1,11 @@
 <?php
 
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\PackageController;
+use App\Http\Controllers\ScormPlayerController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReportExportController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -17,6 +23,9 @@ use App\Http\Controllers\MyCourseController;
 use App\Http\Controllers\MyCertificateController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\LessonContentController;
+use App\Http\Controllers\MyNotificationController;
+use App\Http\Controllers\MyNotificationPreferenceController;
+use App\Http\Controllers\NotificationTemplateController;
 use App\Http\Controllers\PublicCertificateVerificationController;
 use App\Http\Controllers\QuizAttemptController;
 use App\Http\Controllers\QuizController;
@@ -77,6 +86,22 @@ Route::middleware(['auth:sanctum', 'tenant.resolve', 'tenant.active'])->group(fu
         ->middleware('permission:courses.view');
     Route::get('/my/attempts', [QuizAttemptController::class, 'index'])
         ->middleware('permission:courses.view');
+
+    // Notifications (learner)
+    Route::get('/my/notifications', [MyNotificationController::class, 'index']);
+    Route::post('/my/notifications/{id}/read', [MyNotificationController::class, 'markRead']);
+    Route::post('/my/notifications/read-all', [MyNotificationController::class, 'markAllRead']);
+    Route::get('/my/notifications/unread-count', [MyNotificationController::class, 'unreadCount']);
+    Route::get('/my/notification-preferences', [MyNotificationPreferenceController::class, 'index']);
+    Route::put('/my/notification-preferences', [MyNotificationPreferenceController::class, 'update']);
+
+    // Notification templates (admin)
+    Route::get('/notification-templates', [NotificationTemplateController::class, 'index'])
+        ->middleware('permission:settings.manage');
+    Route::put('/notification-templates/{id}', [NotificationTemplateController::class, 'update'])
+        ->middleware('permission:settings.manage');
+    Route::post('/notification-templates/{id}/reset', [NotificationTemplateController::class, 'reset'])
+        ->middleware('permission:settings.manage');
 
     // Roles
     Route::get('/roles', [RoleController::class, 'index'])
@@ -203,6 +228,56 @@ Route::middleware(['auth:sanctum', 'tenant.resolve', 'tenant.active'])->group(fu
     Route::get('/enrollments/{id}', [EnrollmentController::class, 'show']);
     Route::delete('/enrollments/{id}', [EnrollmentController::class, 'destroy'])
         ->middleware('permission:enrollments.delete');
+
+    // Global search
+    Route::get('/search', [SearchController::class, 'search']);
+
+    // Audit logs
+    Route::middleware('permission:users.view')->group(function () {
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/audit-logs/{id}', [AuditLogController::class, 'show']);
+        Route::get('/users/{userId}/audit-trail', [AuditLogController::class, 'userTrail']);
+    });
+
+    // Reports
+    Route::middleware('permission:reports.view')->group(function () {
+        Route::get('/reports/overview', [ReportController::class, 'overview']);
+        Route::get('/reports/completions', [ReportController::class, 'completions']);
+        Route::get('/reports/learner-progress', [ReportController::class, 'learnerProgress']);
+        Route::get('/reports/assessments', [ReportController::class, 'assessments']);
+        Route::get('/reports/assessments/{quizId}/questions', [ReportController::class, 'questionBreakdown']);
+        Route::get('/reports/courses/{courseId}/detail', [ReportController::class, 'courseDetail']);
+        Route::get('/reports/exports', [ReportExportController::class, 'index']);
+        Route::post('/reports/exports', [ReportExportController::class, 'store']);
+        Route::get('/reports/exports/{id}', [ReportExportController::class, 'show']);
+    });
+
+    // SCORM packages (upload, review, publish)
+    Route::post('/courses/{courseId}/packages', [PackageController::class, 'upload'])
+        ->middleware('permission:lessons.manage');
+    Route::get('/packages/{id}', [PackageController::class, 'show'])
+        ->middleware('permission:courses.view');
+    Route::post('/packages/{id}/publish', [PackageController::class, 'publish'])
+        ->middleware('permission:lessons.manage');
+    Route::delete('/packages/{id}', [PackageController::class, 'destroy'])
+        ->middleware('permission:lessons.manage');
+
+    // SCORM runtime
+    Route::post('/packages/{packageVersionId}/launch', [ScormPlayerController::class, 'launch'])
+        ->middleware('permission:courses.view');
+    Route::get('/scorm/player/{sessionId}', [ScormPlayerController::class, 'player'])
+        ->middleware('permission:courses.view')
+        ->name('scorm.player');
+    Route::get('/scorm/sessions/{sessionId}/state', [ScormPlayerController::class, 'state'])
+        ->middleware('permission:courses.view');
+    Route::post('/scorm/sessions/{sessionId}/commit', [ScormPlayerController::class, 'commit'])
+        ->middleware('permission:courses.view');
+    Route::post('/scorm/sessions/{sessionId}/finish', [ScormPlayerController::class, 'finish'])
+        ->middleware('permission:courses.view');
+    Route::get('/scorm/assets/{sessionId}/{path}', [ScormPlayerController::class, 'asset'])
+        ->middleware('permission:courses.view')
+        ->where('path', '.*')
+        ->name('scorm.asset');
 
     // Categories
     Route::get('/categories', [CategoryController::class, 'index'])
